@@ -5,13 +5,13 @@
 
 ## How to run it?
 ### Windows
--	Open **PowerShell** and type **python3 <script_name>** [<arguments>]
+-	Open **PowerShell** and type **python3 <script_name>** [arguments]
 
 ### Linux
-1.	Like above
+1.	Like above, except you use the Terminal instead of Powershell
 2.  $_ chmod +x **<script_name>**
 
-	$_ **./<script_name>**
+	$_ **./<script_name>** [arguments]
 
 -	**Note1:** *<script_name>* is one of those .py files present in this folder.
 -	**Note2:** If you run any of these scripts with no command-line arguments, it will show you how to use it.
