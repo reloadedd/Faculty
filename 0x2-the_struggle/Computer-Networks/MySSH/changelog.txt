@@ -1,0 +1,11 @@
+-- v1.0.0r1:
+    - First release.
+    - The project is functional.
+
+-- v1.0.1r1:
+    - Create cryptography pair of header/source file which contain the function
+      which generates an One Time Password.
+    - Add the possibility to authenticate each client with its own One Time
+      Password.
+    - Modified the log_remote_connection() function to support multiple log
+      messages based on individual codes (reasons).

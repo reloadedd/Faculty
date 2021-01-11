@@ -1,8 +1,8 @@
 CC = gcc
-LIBS_SERVER = -lssl -lcrypto -lutil
+LIBS_SERVER = -lssl -lcrypto -lutil -lbsd
 LIBS_CLIENT = -lssl -lcrypto
 CFLAGS = -g -Wall -Wextra -pedantic -std=c99
-SERVER_SOURCES = server.c src/auxiliary.c src/OpenSSL_helper.c
+SERVER_SOURCES = server.c src/auxiliary.c src/OpenSSL_helper.c src/cryptography.c
 CLIENT_SOURCES = client.c src/auxiliary.c src/OpenSSL_helper.c
 SERVER_BIN = server
 CLIENT_BIN = client

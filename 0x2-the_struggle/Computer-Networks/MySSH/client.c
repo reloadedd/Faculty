@@ -22,6 +22,7 @@
 /* Function prototypes */
 static int establish_connection(const char *ip_address, const char *port);
 static void handle_remote_connection(SSL_CTX *ctx, int sock);
+static void authenticate(SSL *ssl, int sock);
 
 /* Main driver */
 int main(int argc, char *argv[])
@@ -77,13 +78,55 @@ int establish_connection(const char *ip_address, const char *port) {
     return sock;
 }
 
+void authenticate(SSL *ssl, int sock) {
+    char buffer[MAX_BUFFER_SIZE];
+    int nbytes;
+
+    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+
+    printf("The server requires a One Time Password in order to authenticate.\n");
+    printf("%s: ", OTP);
+    fflush(stdout);
+
+    if (read(STDIN_FILENO, buffer, MAX_BUFFER_SIZE * sizeof(char)) == -1) {
+        handle_error_hard("cannot read from standard input");
+    }
+    if (buffer[strlen(buffer) - 1] == '\n') {
+        buffer[strlen(buffer) - 1] = '\0';
+    }
+
+    if (SSL_write(ssl, buffer, strlen(buffer) + 1) == -1) {
+        handle_error_hard("cannot write to remote server");
+    }
+
+    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+    if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
+        handle_error_hard("cannot read from remote server");
+    }
+
+    if (nbytes == 0) {
+        fprintf(stderr, "Verification of OTP failed because of incorrect OTP\n");
+        close(sock);
+        SSL_free (ssl);        /* release connection state */
+        exit(EXIT_FAILURE);
+    }
+
+    /* If we're here, it means that the OTP was correct.
+     * Now, let's refresh the screen.
+     */
+    clear_screen(STDOUT_FILENO);
+
+    /* And then, print out the data received from the server */
+    if (write(STDOUT_FILENO, buffer, strlen(buffer) + 1) == -1) {
+        handle_error_hard("cannot write to standard output");
+    }
+}
+
+
 void handle_remote_connection(SSL_CTX *ctx, int sock) {
     int nbytes, fdmax;
     fd_set master, read_fds;
     char buffer[MAX_BUFFER_SIZE];
-
-    /* Set some attributes on the CLIENT's terminal */
-    set_terminal_attributes(STDIN_FILENO);
 
     SSL *ssl = SSL_new (ctx);           /* get new SSL state with context */
     SSL_set_fd(ssl, sock);      /* set connection socket to SSL state */
@@ -93,6 +136,13 @@ void handle_remote_connection(SSL_CTX *ctx, int sock) {
     }
 
     _OpenSSL_get_certificates(ssl);
+
+#ifdef USE_ONE_TIME_PASSWORD
+    authenticate(ssl, sock);
+#endif
+
+    /* Set some attributes on the CLIENT's terminal */
+    set_terminal_attributes(STDIN_FILENO);
 
     /* Clear the set of descriptors meant to be used for reading and the master
      * set.
@@ -115,20 +165,20 @@ void handle_remote_connection(SSL_CTX *ctx, int sock) {
 
         for (int i = 0; i <= fdmax; ++i) {
             if (FD_ISSET(i, &read_fds)) {
-                if (i == STDIN_FILENO) {
-                    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+                /* Zero out the buffer */
+                memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
 
+                if (i == STDIN_FILENO) {
                     if (read(STDIN_FILENO, buffer, MAX_BUFFER_SIZE * sizeof(char)) == -1) {
                         handle_error_hard("cannot read from standard input");
                     }
 
-                    /* Send it! */
+                    /* Encrypt using SSL the message and send it to the server */
                     if (SSL_write(ssl, buffer, strlen(buffer) + 1) == -1) {
                         handle_error_hard("cannot write to remote server");
                     }
                 }else if (i == sock) {
-                    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
-
+                    /* Read and decrypt using SSL the message received */
                     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
                         handle_error_hard("cannot read from remote server");
                     }else if (nbytes == 0) {

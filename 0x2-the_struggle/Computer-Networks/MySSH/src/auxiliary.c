@@ -34,15 +34,12 @@ void display_banner() {
     "88     `8'     88      Y88'      \"Y88888P\"    \"Y88888P\"   88        88\n"
     "                       d8'                                            \n"
     "                      d8'                                             \n"
-    "\t\tＭＡＤＥ ＷＩＴＨ ❤️ ＢＹ ＲＯＳＣＡ ＩＯＮＵＴ\n\n"
+    "\t\tＭＡＤＥ ＷＩＴＨ ❤️ ＢＹ ＲＯＳＣＡ ＩＯＮＵＴ\n"
+    "\t\t\tVersion: %s |+| Listening port: %d\n\n", VERSION, LISTENING_PORT
     );
-#ifdef DEBUG
-    printf("%s: Version: %s |+| Listening port: %d\n", PS2, VERSION,
-            LISTENING_PORT);
-#endif
 }
 
-void log_remote_connection(pid_t pid, struct sockaddr_in r_conn_details) {
+void log_remote_connection(int reason, pid_t pid, struct sockaddr_in r_conn_details) {
     time_t t = time(NULL);
     struct tm _tm = *localtime(&t);
     char ipv4[INET_ADDRSTRLEN];
@@ -51,10 +48,28 @@ void log_remote_connection(pid_t pid, struct sockaddr_in r_conn_details) {
       handle_error_soft("cannot decode IPv4 address received in logging function");
     }
 
-    printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) Got connection from IP: "
+    switch (reason) {
+        /* Simply log the connection */
+        case R_LOG_CONNECTION:
+            printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) Got connection from IP: "
             "%s, PORT: %d\n", _tm.tm_year + 1900, _tm.tm_mon + 1, _tm.tm_mday,
             _tm.tm_hour, _tm.tm_min, _tm.tm_sec, pid, ipv4,
             ntohs(r_conn_details.sin_port));
+            break;
+        /* One Time Password verification failed */
+        case R_LOG_FAILED_OTP:
+            printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) Failed OTP "
+            "verification [IP: %s, PORT: %d]\n", _tm.tm_year + 1900,
+            _tm.tm_mon + 1, _tm.tm_mday, _tm.tm_hour, _tm.tm_min, _tm.tm_sec,
+            pid, ipv4, ntohs(r_conn_details.sin_port));
+            break;
+        case R_LOG_CLIENT_DISCONNECTED:
+            printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) Client with "
+            "[IP: %s, PORT: %d], disconnected\n", _tm.tm_year + 1900,
+            _tm.tm_mon + 1, _tm.tm_mday, _tm.tm_hour, _tm.tm_min, _tm.tm_sec,
+            pid, ipv4, ntohs(r_conn_details.sin_port));
+            break;
+    }
     fflush(stdout);
 }
 
@@ -93,4 +108,9 @@ void set_terminal_attributes(int fd) {
         /* Won't exit, but warn the client */
         handle_error_soft("unable to set terminal attributes");
     }
+}
+
+void clear_screen(int screen) {
+  write(screen, "\x1b[2J", 4);
+  write(screen, "\x1b[H", 3);
 }

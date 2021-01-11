@@ -15,7 +15,9 @@
 extern void handle_error_soft(const char *msg);
 extern void handle_error_hard(const char *msg);
 extern void display_banner();
-extern void log_remote_connection(pid_t pid, struct sockaddr_in r_conn_details);
+extern void log_remote_connection(int reason, pid_t pid,
+    struct sockaddr_in r_conn_details);
 extern void set_terminal_attributes(int fd);
+extern void clear_screen(int screen);
 
 #endif /* __INCLUDE_AUXILIARY_H_ */

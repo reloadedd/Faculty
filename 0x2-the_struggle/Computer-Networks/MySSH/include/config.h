@@ -28,7 +28,7 @@
  * In order to *enable* DEBUG mode, uncomment the next define.
  * In order to *disable* DEBUG mode, comment the next define.
  */
-#define DEBUG
+// #define DEBUG
 
 /* The prompt that will be displayed when taking input from the client */
 #define PS1 "ＰＲＯＭＰＴ > "
@@ -37,6 +37,9 @@
  * server side.
  */
 #define PS2 "ＤＥＢＵＧ"
+
+/* The prompt that will be used when displaying One Time Passwords */
+#define OTP "ＯＴＰ"
 
 /* The maximum length to which the queue of pending connections for the
  * listening socket may grow.
@@ -49,17 +52,26 @@
  */
 #define SHELL   "/bin/bash"
 
+/* The maximum size of a buffer that can be sent at one moment in time over the
+ * wire.
+ */
 #define MAX_BUFFER_SIZE 4096
 
-/* ncurses also define TRUE and FALSE macros */
-// #ifndef FALSE
+/* Helper defines to simulate booleans */
 #define FALSE   0
-// #endif
-// #ifndef TRUE
 #define TRUE    1
-// #endif
 
 /* The certificate file needed by OpenSSL in the server */
 #define CERTIFICATE "server_certificate.pem"
+
+/* This macro decides if the server will be free-for-all or users will need to
+ * authenticate.
+ */
+#define USE_ONE_TIME_PASSWORD
+
+/* Reasons checked by the log_remote_connection() function */
+#define R_LOG_CONNECTION            0
+#define R_LOG_FAILED_OTP            1
+#define R_LOG_CLIENT_DISCONNECTED   2
 
 #endif  /* __INCLUDE_CONFIG_H_ */

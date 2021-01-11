@@ -21,6 +21,7 @@
 #include "include/config.h"
 #include "include/auxiliary.h"
 #include "include/OpenSSL_helper.h"
+#include "include/cryptography.h"
 
 /* Global variables */
 volatile sig_atomic_t G_STILL_ALIVE = TRUE;
@@ -28,8 +29,13 @@ volatile sig_atomic_t G_STILL_ALIVE = TRUE;
 /* Function prototypes */
 static void sigchld_handler_child(int sig);
 static void sigchld_handler_parent(int sig);
-static int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr);
 
+#ifdef USE_ONE_TIME_PASSWORD
+static int exec_conn_handler(SSL_CTX *ctx, int client,
+    struct sockaddr_in peer_addr, const char *otp);
+#else
+static int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr);
+#endif
 
 /* Main driver */
 int main(int argc, char *argv[]) {
@@ -40,6 +46,7 @@ int main(int argc, char *argv[]) {
     socklen_t addrlen;
     struct sigaction sa;
     const SSL_METHOD *method;
+    const char *otp;
     struct sockaddr_in this, peer_addr;
 
     /* Zero-out the sockaddr_in structs */
@@ -119,6 +126,10 @@ int main(int argc, char *argv[]) {
     }
 
     while((client = accept(sck, (struct sockaddr *) &peer_addr, &addrlen)) != -1) {
+#ifdef USE_ONE_TIME_PASSWORD
+        printf("%s:【 %s 】\n", OTP, (otp = one_time_password()));
+#endif
+
         if ((child_pid = fork()) == -1) {
             handle_error_hard("at fork");
         }
@@ -138,7 +149,11 @@ int main(int argc, char *argv[]) {
             }
             /* The child process doesn't need the listener */
             close(sck);
+#ifdef USE_ONE_TIME_PASSWORD
+            exec_conn_handler(ctx, client, peer_addr, otp);
+#else
             exec_conn_handler(ctx, client, peer_addr);
+#endif
         }
 
         if (sigprocmask(SIG_UNBLOCK, &intmask, NULL) == -1) {
@@ -188,7 +203,12 @@ void sigchld_handler_child(int sig) {
     errno = saved_errno;
 }
 
+#ifdef USE_ONE_TIME_PASSWORD
+int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr,
+    const char *otp) {
+#else
 int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
+#endif
     pid_t child_pty;
     fd_set master, read_fds;
     char buffer[MAX_BUFFER_SIZE];
@@ -202,7 +222,22 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
         _OpenSSL_handle_error("SSL-accepting failed");
     }
 
-    _OpenSSL_get_certificates(ssl);
+    // _OpenSSL_get_certificates(ssl);
+
+#ifdef USE_ONE_TIME_PASSWORD
+    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+
+    if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
+        handle_error_hard("cannot read One Time Password from remote server");
+    }
+
+    if (strcmp(otp, buffer) != 0) {
+        log_remote_connection(R_LOG_FAILED_OTP, getpid(), peer_addr);
+        close(client);
+        SSL_free(ssl);
+        exit(EXIT_SUCCESS);
+    }
+#endif
 
     if ((child_pty = forkpty(&terminal_fd, NULL, NULL, NULL)) == -1) {
         handle_error_hard("at fork");
@@ -217,11 +252,8 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
         handle_error_hard("the execl(3) call failed");
     }
 
-    /* Log the remote connections from clients to stdout.
-     * Child process will never execute this because it will call exec()
-     * and then will exit.
-     */
-    log_remote_connection(getpid(), peer_addr);
+    /* Log the remote connections from clients to stdout */
+    log_remote_connection(R_LOG_CONNECTION, getpid(), peer_addr);
 #ifdef DEBUG
     printf("%s: Attached pseudo-terminal (PID: %d) to client with PID: %d.\n",
             PS2, child_pty, getpid());
@@ -248,26 +280,28 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
 
         for (int i = 0; i <= fdmax; ++i) {
             if (FD_ISSET(i, &read_fds)) {
-                if (i == terminal_fd) {
-                    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+                /* Zero out the buffer */
+                memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
 
-                    /* If read fails while the forkpty-ed process is still alive
-                     * then raise an error.
+                if (i == terminal_fd) {
+                    /* If any I/O operation fails and the master side of the
+                     * pseudoterminal is not closed, then raise an error and
+                     * terminate the program.
                      */
                     if (read(terminal_fd, buffer, MAX_BUFFER_SIZE) == -1 &&
                             fcntl(terminal_fd, F_GETFD) > 0) {
                         handle_error_hard("cannot read from pseudo-terminal");
                     }
 
+                    /* Encrypt using SSL the message and send it to the client */
                     if (SSL_write(ssl, buffer, strlen(buffer)) == -1 &&
                             fcntl(terminal_fd, F_GETFD) > 0) {
                         handle_error_hard("cannot write to remote client");
                     }
                 }else if (i == client) {
-                    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
-
+                    /* Read and decrypt using SSL the message received */
                     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
-                        handle_error_soft("cannot read from remote server");
+                        handle_error_soft("cannot read from remote client");
                     }else if (nbytes == 0) {
                         /* In the next iteration of while, close the connection
                          * and exit the function.
@@ -275,14 +309,11 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
                          G_STILL_ALIVE = FALSE;
                          break;
                     }else{
-#ifdef DEBUG
-                        printf("%s: len: %ld | Buffer: ", PS2, strlen(buffer));
-#endif
-                        if (iscntrl(buffer[0])) {
-                          printf("%d\n", buffer[0]);
-                        } else {
-                          printf("%d ('%c')\n", buffer[0], buffer[0]);
-                        }
+                        // if (iscntrl(buffer[0])) {
+                        //   printf("%d\n", buffer[0]);
+                        // } else {
+                        //   printf("%d ('%c')\n", buffer[0], buffer[0]);
+                        // }
 
                         if (write(terminal_fd, buffer, strlen(buffer)) == -1) {
                             handle_error_hard("cannot write to pseudo-terminal");
@@ -298,6 +329,9 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
 
     /* Close the client socket descriptor */
     close(client);
+
+    /* Log disconnected clients */
+    log_remote_connection(R_LOG_CLIENT_DISCONNECTED, getpid(), peer_addr);
 
 #ifdef DEBUG
     printf("%s: Pseudo-terminal attached at PID: %d, terminated.\n", PS2, child_pty);
