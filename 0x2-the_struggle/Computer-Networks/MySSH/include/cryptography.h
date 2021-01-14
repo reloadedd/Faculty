@@ -7,6 +7,9 @@
 
 #define ONE_TIME_PASSWORD_LENGTH    35
 
+/* Get rid of warning */
+extern void arc4random_buf(void *buf, size_t nbytes);
+
 extern const char *one_time_password();
 
 #endif /* __INCLUDE_CRYPTOGRAPHY_H_ */

@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 #include "config.h"
 
 extern void handle_error_soft(const char *msg);

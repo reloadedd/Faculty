@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
@@ -29,7 +30,7 @@ volatile sig_atomic_t G_STILL_ALIVE = TRUE;
 /* Function prototypes */
 static void sigchld_handler_child(int sig);
 static void sigchld_handler_parent(int sig);
-
+static void clean_exit(int sock_fd, SSL *ssl);
 #ifdef USE_ONE_TIME_PASSWORD
 static int exec_conn_handler(SSL_CTX *ctx, int client,
     struct sockaddr_in peer_addr, const char *otp);
@@ -37,8 +38,9 @@ static int exec_conn_handler(SSL_CTX *ctx, int client,
 static int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr);
 #endif
 
+
 /* Main driver */
-int main(int argc, char *argv[]) {
+int main() {
     SSL_CTX *ctx;
     int sck, client;
     pid_t child_pid;
@@ -46,7 +48,9 @@ int main(int argc, char *argv[]) {
     socklen_t addrlen;
     struct sigaction sa;
     const SSL_METHOD *method;
+#ifdef USE_ONE_TIME_PASSWORD
     const char *otp;
+#endif
     struct sockaddr_in this, peer_addr;
 
     /* Zero-out the sockaddr_in structs */
@@ -76,7 +80,7 @@ int main(int argc, char *argv[]) {
         handle_error_hard("unable to mark the socket as passive in listen");
     }
 
-    /* Display the banner that will be seen when the program will be run */
+    /* Display a cool banner */
     display_banner();
 
     /* Here starts configuring OpenSSL */
@@ -91,17 +95,17 @@ int main(int argc, char *argv[]) {
     }
 
     /* Set the local certificate from file */
-    if (SSL_CTX_use_certificate_file (ctx, CERTIFICATE, SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_certificate_file(ctx, CERTIFICATE, SSL_FILETYPE_PEM) <= 0) {
         _OpenSSL_handle_error("unable to load certificate file");
     }
 
     /* Set the private key from file (may be the same file as previous) */
-    if (SSL_CTX_use_PrivateKey_file (ctx, CERTIFICATE, SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_PrivateKey_file(ctx, CERTIFICATE, SSL_FILETYPE_PEM) <= 0) {
         _OpenSSL_handle_error("unable to use private key from certificate file");
     }
 
     /* Verify private key */
-    if (!SSL_CTX_check_private_key (ctx)) {
+    if (!SSL_CTX_check_private_key(ctx)) {
         _OpenSSL_handle_error("verification of private key failed");
     }
 
@@ -147,6 +151,7 @@ int main(int argc, char *argv[]) {
             if (sigprocmask(SIG_UNBLOCK, &intmask, NULL) == -1) {
                 handle_error_hard("unable to block signal in child");
             }
+
             /* The child process doesn't need the listener */
             close(sck);
 #ifdef USE_ONE_TIME_PASSWORD
@@ -203,6 +208,18 @@ void sigchld_handler_child(int sig) {
     errno = saved_errno;
 }
 
+void clean_exit(int sock_fd, SSL *ssl) {
+    /* Close the socket descriptor */
+    close(sock_fd);
+
+    /* Release SSL state */
+    SSL_free(ssl);
+
+    /* Terminate the process successfully */
+    exit(EXIT_SUCCESS);
+}
+
+
 #ifdef USE_ONE_TIME_PASSWORD
 int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr,
     const char *otp) {
@@ -222,20 +239,30 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
         _OpenSSL_handle_error("SSL-accepting failed");
     }
 
-    // _OpenSSL_get_certificates(ssl);
+    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+    if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
+        if (errno != ECONNRESET) {
+            handle_error_hard("cannot read One Time Password from remote client");
+        }
+    }
+
+    if (strcmp(buffer, "yes") != 0 && strcmp(buffer, "y") != 0) {
+        log_remote_connection(R_LOG_CLIENT_DENY_CERT, getpid(), peer_addr);
+        clean_exit(client, ssl);
+    }
 
 #ifdef USE_ONE_TIME_PASSWORD
     memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
 
     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
-        handle_error_hard("cannot read One Time Password from remote server");
+        if (errno != ECONNRESET) {
+            handle_error_hard("cannot read One Time Password from remote client");
+        }
     }
 
     if (strcmp(otp, buffer) != 0) {
         log_remote_connection(R_LOG_FAILED_OTP, getpid(), peer_addr);
-        close(client);
-        SSL_free(ssl);
-        exit(EXIT_SUCCESS);
+        clean_exit(client, ssl);
     }
 #endif
 
@@ -254,6 +281,7 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
 
     /* Log the remote connections from clients to stdout */
     log_remote_connection(R_LOG_CONNECTION, getpid(), peer_addr);
+
 #ifdef DEBUG
     printf("%s: Attached pseudo-terminal (PID: %d) to client with PID: %d.\n",
             PS2, child_pty, getpid());
@@ -309,28 +337,16 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
                          G_STILL_ALIVE = FALSE;
                          break;
                     }else{
-                        // if (iscntrl(buffer[0])) {
-                        //   printf("%d\n", buffer[0]);
-                        // } else {
-                        //   printf("%d ('%c')\n", buffer[0], buffer[0]);
-                        // }
-
                         if (write(terminal_fd, buffer, strlen(buffer)) == -1) {
                             handle_error_hard("cannot write to pseudo-terminal");
-                        }
+                        }   /* END of if */
                     }   /* END of else */
                 }   /* END of else-if */
             }   /* END of if */
         }   /* END of for */
     }   /* END of the processing loop (while) */
 
-    /* Release SSL state */
-    SSL_free(ssl);
-
-    /* Close the client socket descriptor */
-    close(client);
-
-    /* Log disconnected clients */
+    /* Log client disconnect event */
     log_remote_connection(R_LOG_CLIENT_DISCONNECTED, getpid(), peer_addr);
 
 #ifdef DEBUG
@@ -338,6 +354,7 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
     printf("%s: Client with assigned PID: %d, disconnected.\n", PS2, getpid());
 #endif
 
-    /* Terminate the forked process successfully */
-    exit(EXIT_SUCCESS);
+    clean_exit(client, ssl);
+    /* Unreachable code, but will get rid of warning */
+    return 0;
 }

@@ -73,5 +73,6 @@
 #define R_LOG_CONNECTION            0
 #define R_LOG_FAILED_OTP            1
 #define R_LOG_CLIENT_DISCONNECTED   2
+#define R_LOG_CLIENT_DENY_CERT      3
 
 #endif  /* __INCLUDE_CONFIG_H_ */

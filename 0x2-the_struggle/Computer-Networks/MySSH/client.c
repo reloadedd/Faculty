@@ -22,7 +22,10 @@
 /* Function prototypes */
 static int establish_connection(const char *ip_address, const char *port);
 static void handle_remote_connection(SSL_CTX *ctx, int sock);
+#ifdef USE_ONE_TIME_PASSWORD
 static void authenticate(SSL *ssl, int sock);
+#endif
+
 
 /* Main driver */
 int main(int argc, char *argv[])
@@ -78,20 +81,20 @@ int establish_connection(const char *ip_address, const char *port) {
     return sock;
 }
 
+#ifdef USE_ONE_TIME_PASSWORD
 void authenticate(SSL *ssl, int sock) {
     char buffer[MAX_BUFFER_SIZE];
     int nbytes;
 
     memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
 
-    printf("The server requires a One Time Password in order to authenticate.\n");
-    printf("%s: ", OTP);
+    printf("The server requires a One Time Password in order to authenticate."
+    "\n%s: ", OTP);
     fflush(stdout);
 
     if (read(STDIN_FILENO, buffer, MAX_BUFFER_SIZE * sizeof(char)) == -1) {
         handle_error_hard("cannot read from standard input");
-    }
-    if (buffer[strlen(buffer) - 1] == '\n') {
+    }else if (buffer[strlen(buffer) - 1] == '\n') {
         buffer[strlen(buffer) - 1] = '\0';
     }
 
@@ -121,7 +124,7 @@ void authenticate(SSL *ssl, int sock) {
         handle_error_hard("cannot write to standard output");
     }
 }
-
+#endif
 
 void handle_remote_connection(SSL_CTX *ctx, int sock) {
     int nbytes, fdmax;
@@ -136,6 +139,21 @@ void handle_remote_connection(SSL_CTX *ctx, int sock) {
     }
 
     _OpenSSL_get_certificates(ssl);
+    printf("Is it ok? ");
+    fflush(stdout);
+    memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+    if (read(STDIN_FILENO, buffer, MAX_BUFFER_SIZE) == -1) {
+        handle_error_hard("cannot read from standard input");
+    }else if (buffer[strlen(buffer) - 1] == '\n') {
+        buffer[strlen(buffer) - 1] = '\0';
+    }
+
+    if (SSL_write(ssl, buffer, strlen(buffer) + 1) == -1) {
+        handle_error_hard("cannot write to remote server");
+    }
+    if ((strcmp(buffer, "yes") != 0 && strcmp(buffer, "y") != 0)) {
+        exit(EXIT_SUCCESS);
+    }
 
 #ifdef USE_ONE_TIME_PASSWORD
     authenticate(ssl, sock);
@@ -144,6 +162,9 @@ void handle_remote_connection(SSL_CTX *ctx, int sock) {
     /* Set some attributes on the CLIENT's terminal */
     set_terminal_attributes(STDIN_FILENO);
 
+#ifndef USE_ONE_TIME_PASSWORD
+    clear_screen(STDOUT_FILENO);
+#endif
     /* Clear the set of descriptors meant to be used for reading and the master
      * set.
      */

@@ -9,3 +9,9 @@
       Password.
     - Modified the log_remote_connection() function to support multiple log
       messages based on individual codes (reasons).
+
+-- v1.0.1r2:
+    -   Asks the client if they accept the server certificate before continuing
+    -   Fixed arc4random_buf function implicit declaration warning
+    -   Fixed warning related to server's main function unused parameters
+    -   Better commented some parts of the code

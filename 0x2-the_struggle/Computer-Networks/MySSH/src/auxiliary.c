@@ -48,26 +48,26 @@ void log_remote_connection(int reason, pid_t pid, struct sockaddr_in r_conn_deta
       handle_error_soft("cannot decode IPv4 address received in logging function");
     }
 
+    printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) ", _tm.tm_year + 1900,
+    _tm.tm_mon + 1, _tm.tm_mday, _tm.tm_hour, _tm.tm_min, _tm.tm_sec, pid);
     switch (reason) {
         /* Simply log the connection */
         case R_LOG_CONNECTION:
-            printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) Got connection from IP: "
-            "%s, PORT: %d\n", _tm.tm_year + 1900, _tm.tm_mon + 1, _tm.tm_mday,
-            _tm.tm_hour, _tm.tm_min, _tm.tm_sec, pid, ipv4,
+            printf("Got connection from [IP: %s, PORT: %d]\n", ipv4,
             ntohs(r_conn_details.sin_port));
             break;
         /* One Time Password verification failed */
         case R_LOG_FAILED_OTP:
-            printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) Failed OTP "
-            "verification [IP: %s, PORT: %d]\n", _tm.tm_year + 1900,
-            _tm.tm_mon + 1, _tm.tm_mday, _tm.tm_hour, _tm.tm_min, _tm.tm_sec,
-            pid, ipv4, ntohs(r_conn_details.sin_port));
+            printf("Failed OTP verification [IP: %s, PORT: %d]\n", ipv4,
+            ntohs(r_conn_details.sin_port));
             break;
         case R_LOG_CLIENT_DISCONNECTED:
-            printf("[ %d-%02d-%02d %02d:%02d:%02d ] (PID: %d) Client with "
-            "[IP: %s, PORT: %d], disconnected\n", _tm.tm_year + 1900,
-            _tm.tm_mon + 1, _tm.tm_mday, _tm.tm_hour, _tm.tm_min, _tm.tm_sec,
-            pid, ipv4, ntohs(r_conn_details.sin_port));
+            printf("Client [IP: %s, PORT: %d], disconnected\n", ipv4,
+            ntohs(r_conn_details.sin_port));
+            break;
+        case R_LOG_CLIENT_DENY_CERT:
+            printf("Client [IP: %s, PORT: %d] denied to accept server "
+            "certificate\n", ipv4, ntohs(r_conn_details.sin_port));
             break;
     }
     fflush(stdout);
@@ -111,6 +111,7 @@ void set_terminal_attributes(int fd) {
 }
 
 void clear_screen(int screen) {
-  write(screen, "\x1b[2J", 4);
-  write(screen, "\x1b[H", 3);
+    /* VT100 escape sequence - widely supported by modern terminal emulators */
+    write(screen, "\x1b[2J", 4);  /* ESC + [ + 2 (all) + J (clear screen) */
+    write(screen, "\x1b[H", 3);   /* ESC + [ + default (1;1) + H (cursor position) */
 }
