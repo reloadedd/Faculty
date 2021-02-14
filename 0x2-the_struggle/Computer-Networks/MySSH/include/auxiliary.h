@@ -1,4 +1,8 @@
 /*  Copyright (c) 2020-2021 Roșca Ionuț <ionut.rosca@info.uaic.ro> */
+
+/* This header file contains auxiliary functions (for both the client and server)
+ * for general use.
+ */
 #ifndef __INCLUDE_AUXILIARY_H_
 #define __INCLUDE_AUXILIARY_H_
 

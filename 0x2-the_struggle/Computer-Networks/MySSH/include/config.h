@@ -11,9 +11,9 @@
 /* The version of the project.
  * Format:
  *      -- v<MAJOR>.<MINOR>.<MICRO>r<REVISION NUMBER>
- * Last revision: 10 December 2020
+ * Last revision: 14 February 2021
  */
-#define VERSION "v1.0.0r1"
+#define VERSION "v1.0.1r3"
 
 /* The port used by the server to listen for incoming connections.
  * 0xc0de is 49374 in decimal notation.
@@ -62,17 +62,27 @@
 #define TRUE    1
 
 /* The certificate file needed by OpenSSL in the server */
-#define CERTIFICATE "server_certificate.pem"
+#define CERTIFICATE        "cert.pem"
+#define CERTIFICATE_KEY    "key.pem"
 
 /* This macro decides if the server will be free-for-all or users will need to
  * authenticate.
+ * --- Usage:
+ * In order to *enable* One-Time-Password (OTP) mode, uncomment the next define.
+ * In order to *disable* One-Time-Password (OTP) mode, comment the next define.
  */
 #define USE_ONE_TIME_PASSWORD
 
-/* Reasons checked by the log_remote_connection() function */
+/* Reasons of client discconection, meant to be used and checked by the
+ * log_remote_connection() function (located in auxiliary.h header file).
+ */
 #define R_LOG_CONNECTION            0
 #define R_LOG_FAILED_OTP            1
 #define R_LOG_CLIENT_DISCONNECTED   2
 #define R_LOG_CLIENT_DENY_CERT      3
+
+/* Accepted answers for questions asked by the server or client */
+#define A_ACCEPT_CERT_YES   "yes"
+#define A_ACCEPT_CERT_Y     "y"
 
 #endif  /* __INCLUDE_CONFIG_H_ */

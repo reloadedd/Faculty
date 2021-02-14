@@ -70,7 +70,7 @@ void log_remote_connection(int reason, pid_t pid, struct sockaddr_in r_conn_deta
             "certificate\n", ipv4, ntohs(r_conn_details.sin_port));
             break;
     }
-    fflush(stdout);
+    // fflush(stdout);
 }
 
 void set_terminal_attributes(int fd) {

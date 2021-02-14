@@ -31,13 +31,7 @@ volatile sig_atomic_t G_STILL_ALIVE = TRUE;
 static void sigchld_handler_child(int sig);
 static void sigchld_handler_parent(int sig);
 static void clean_exit(int sock_fd, SSL *ssl);
-#ifdef USE_ONE_TIME_PASSWORD
-static int exec_conn_handler(SSL_CTX *ctx, int client,
-    struct sockaddr_in peer_addr, const char *otp);
-#else
 static int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr);
-#endif
-
 
 /* Main driver */
 int main() {
@@ -48,9 +42,6 @@ int main() {
     socklen_t addrlen;
     struct sigaction sa;
     const SSL_METHOD *method;
-#ifdef USE_ONE_TIME_PASSWORD
-    const char *otp;
-#endif
     struct sockaddr_in this, peer_addr;
 
     /* Zero-out the sockaddr_in structs */
@@ -68,15 +59,18 @@ int main() {
 
     int yes = 1;
     if (setsockopt(sck, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1) {
+        close(sck);
         handle_error_hard("unable to set socket option");
     }
 
     addrlen = sizeof(struct sockaddr_in);
     if (bind(sck, (struct sockaddr *) &this, addrlen) == -1) {
+        close(sck);
         handle_error_hard("unable to bind socket");
     }
 
     if (listen(sck, LISTEN_MAX_BACKLOG) == -1) {
+        close(sck);
         handle_error_hard("unable to mark the socket as passive in listen");
     }
 
@@ -87,25 +81,33 @@ int main() {
     _OpenSSL_initialization();
 
     if ((method = TLS_server_method()) == NULL) {
+        close(sck);
         _OpenSSL_handle_error("unable to set-up encryption protocol");
     }
 
     if ((ctx = SSL_CTX_new(method)) == NULL) {
+        close(sck);
         _OpenSSL_handle_error("unable to create SSL CTX object");
     }
 
     /* Set the local certificate from file */
     if (SSL_CTX_use_certificate_file(ctx, CERTIFICATE, SSL_FILETYPE_PEM) <= 0) {
+        close(sck);
+        _OpenSSL_cleanup(ctx);
         _OpenSSL_handle_error("unable to load certificate file");
     }
 
     /* Set the private key from file (may be the same file as previous) */
-    if (SSL_CTX_use_PrivateKey_file(ctx, CERTIFICATE, SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_PrivateKey_file(ctx, CERTIFICATE_KEY, SSL_FILETYPE_PEM) <= 0) {
+        close(sck);
+        _OpenSSL_cleanup(ctx);
         _OpenSSL_handle_error("unable to use private key from certificate file");
     }
 
     /* Verify private key */
     if (!SSL_CTX_check_private_key(ctx)) {
+        close(sck);
+        _OpenSSL_cleanup(ctx);
         _OpenSSL_handle_error("verification of private key failed");
     }
 
@@ -118,23 +120,27 @@ int main() {
     sa.sa_flags = SA_RESTART;
 
     if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        close(sck);
+        _OpenSSL_cleanup(ctx);
         handle_error_hard("unable to set signal handler for SIGCHLD");
     }
 
     if ((sigemptyset(&intmask) == -1) || (sigaddset(&intmask, SIGCHLD) == -1)) {
+        close(sck);
+        _OpenSSL_cleanup(ctx);
        handle_error_hard("failed to initialize signal mask");
     }
 
     if (sigprocmask(SIG_BLOCK, &intmask, NULL) == -1) {
+        close(sck);
+        _OpenSSL_cleanup(ctx);
         handle_error_hard("unable to block signal in parent");
     }
 
     while((client = accept(sck, (struct sockaddr *) &peer_addr, &addrlen)) != -1) {
-#ifdef USE_ONE_TIME_PASSWORD
-        printf("%s:【 %s 】\n", OTP, (otp = one_time_password()));
-#endif
-
         if ((child_pid = fork()) == -1) {
+            close(sck);
+            _OpenSSL_cleanup(ctx);
             handle_error_hard("at fork");
         }
 
@@ -145,23 +151,25 @@ int main() {
             sa_chld.sa_flags = SA_RESTART;
 
             if (sigaction(SIGCHLD, &sa_chld, NULL) == -1) {
+                close(sck);
+                _OpenSSL_cleanup(ctx);
                 handle_error_hard("unable to set signal handler for SIGCHLD");
             }
 
             if (sigprocmask(SIG_UNBLOCK, &intmask, NULL) == -1) {
+                close(sck);
+                _OpenSSL_cleanup(ctx);
                 handle_error_hard("unable to block signal in child");
             }
 
             /* The child process doesn't need the listener */
             close(sck);
-#ifdef USE_ONE_TIME_PASSWORD
-            exec_conn_handler(ctx, client, peer_addr, otp);
-#else
             exec_conn_handler(ctx, client, peer_addr);
-#endif
         }
 
         if (sigprocmask(SIG_UNBLOCK, &intmask, NULL) == -1) {
+            close(sck);
+            _OpenSSL_cleanup(ctx);
             handle_error_hard("unable to unblock signal in parent");
         }
 
@@ -176,6 +184,8 @@ int main() {
     }
 
     if (client == -1) {
+        close(sck);
+        _OpenSSL_cleanup(ctx);
         handle_error_hard("unable to accept incoming connection");
     }
 
@@ -203,7 +213,11 @@ void sigchld_handler_child(int sig) {
     int saved_errno = errno;
     while(waitpid(-1, NULL, WNOHANG) > 0);
 
+    /* The forked-pty'ed process is now done, so this means that the connection
+     * with the client is over.
+      */
     G_STILL_ALIVE = FALSE;
+
     /* waitpid() might overwrite errno, so we save and restore it */
     errno = saved_errno;
 }
@@ -219,34 +233,37 @@ void clean_exit(int sock_fd, SSL *ssl) {
     exit(EXIT_SUCCESS);
 }
 
-
-#ifdef USE_ONE_TIME_PASSWORD
-int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr,
-    const char *otp) {
-#else
 int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
-#endif
     pid_t child_pty;
     fd_set master, read_fds;
     char buffer[MAX_BUFFER_SIZE];
     int terminal_fd, nbytes, fdmax;
-
-    SSL *ssl = SSL_new (ctx);           /* get new SSL state with context */
-    SSL_set_fd (ssl, client);      /* set connection socket to SSL state */
+#ifdef USE_ONE_TIME_PASSWORD
+    const char *otp;
+#endif
+    SSL *ssl = SSL_new(ctx);           /* get new SSL state with context */
+    SSL_set_fd(ssl, client);      /* set connection socket to SSL state */
 
     /* do SSL-protocol accept */
     if (SSL_accept(ssl) <= 0) {
+        clean_exit(client, ssl);
         _OpenSSL_handle_error("SSL-accepting failed");
     }
+
+#ifdef USE_ONE_TIME_PASSWORD
+    printf("%s:【 %s 】\n", OTP, (otp = one_time_password()));
+#endif
 
     memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
         if (errno != ECONNRESET) {
+            clean_exit(client, ssl);
             handle_error_hard("cannot read One Time Password from remote client");
         }
     }
 
-    if (strcmp(buffer, "yes") != 0 && strcmp(buffer, "y") != 0) {
+    if (strcmp(buffer, A_ACCEPT_CERT_YES) != 0
+        && strcmp(buffer, A_ACCEPT_CERT_Y) != 0) {
         log_remote_connection(R_LOG_CLIENT_DENY_CERT, getpid(), peer_addr);
         clean_exit(client, ssl);
     }
@@ -256,6 +273,7 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
 
     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
         if (errno != ECONNRESET) {
+            clean_exit(client, ssl);
             handle_error_hard("cannot read One Time Password from remote client");
         }
     }
@@ -267,6 +285,7 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
 #endif
 
     if ((child_pty = forkpty(&terminal_fd, NULL, NULL, NULL)) == -1) {
+        clean_exit(client, ssl);
         handle_error_hard("at fork");
     }
 
@@ -276,6 +295,7 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
          */
         close(client);
         execl(SHELL, SHELL, (char *) NULL);
+        clean_exit(client, ssl);
         handle_error_hard("the execl(3) call failed");
     }
 
@@ -303,6 +323,7 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
     while (G_STILL_ALIVE == TRUE) {
         read_fds = master;
         if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
+            clean_exit(client, ssl);
             handle_error_hard("in select");
         }
 
@@ -318,18 +339,21 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
                      */
                     if (read(terminal_fd, buffer, MAX_BUFFER_SIZE) == -1 &&
                             fcntl(terminal_fd, F_GETFD) > 0) {
+                        clean_exit(client, ssl);
                         handle_error_hard("cannot read from pseudo-terminal");
                     }
 
                     /* Encrypt using SSL the message and send it to the client */
                     if (SSL_write(ssl, buffer, strlen(buffer)) == -1 &&
                             fcntl(terminal_fd, F_GETFD) > 0) {
+                        clean_exit(client, ssl);
                         handle_error_hard("cannot write to remote client");
                     }
                 }else if (i == client) {
                     /* Read and decrypt using SSL the message received */
                     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
-                        handle_error_soft("cannot read from remote client");
+                        clean_exit(client, ssl);
+                        handle_error_hard("cannot read from remote client");
                     }else if (nbytes == 0) {
                         /* In the next iteration of while, close the connection
                          * and exit the function.
@@ -338,6 +362,7 @@ int exec_conn_handler(SSL_CTX *ctx, int client, struct sockaddr_in peer_addr) {
                          break;
                     }else{
                         if (write(terminal_fd, buffer, strlen(buffer)) == -1) {
+                            clean_exit(client, ssl);
                             handle_error_hard("cannot write to pseudo-terminal");
                         }   /* END of if */
                     }   /* END of else */

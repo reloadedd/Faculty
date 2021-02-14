@@ -1,4 +1,8 @@
 /*  Copyright (c) 2020-2021 Roșca Ionuț <ionut.rosca@info.uaic.ro> */
+
+/* This header file contains cryptographic functions meant to be used for secure
+ * communication between the server - client(s)
+ */
 #ifndef __INCLUDE_CRYPTOGRAPHY_H_
 #define __INCLUDE_CRYPTOGRAPHY_H_
 

@@ -4,15 +4,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ncurses.h>
-#include <pthread.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <pty.h>
-#include <sys/wait.h>
 
 /* Custom headers */
 #include "include/config.h"
@@ -26,7 +22,6 @@ static void handle_remote_connection(SSL_CTX *ctx, int sock);
 static void authenticate(SSL *ssl, int sock);
 #endif
 
-
 /* Main driver */
 int main(int argc, char *argv[])
 {
@@ -35,7 +30,7 @@ int main(int argc, char *argv[])
 
     if (argc != 3) {
         printf("ＵＳＡＧＥ: %s <IP ADDRESS> <PORT>\n", argv[0]);
-        handle_error_hard("invalid number of command-line arguments received");
+        exit(EXIT_SUCCESS);
     }
 
     /* Here starts configuring OpenSSL */
@@ -48,7 +43,6 @@ int main(int argc, char *argv[])
     if ((ctx = SSL_CTX_new(method)) == NULL) {
         _OpenSSL_handle_error("unable to create SSL CTX object");
     }
-
 
     int sock_fd = establish_connection(argv[1], argv[2]);
     handle_remote_connection(ctx, sock_fd);
@@ -71,10 +65,12 @@ int establish_connection(const char *ip_address, const char *port) {
     s_conn.sin_family = AF_INET;
     s_conn.sin_port   = htons(atoi(port));
     if (inet_pton(AF_INET, ip_address, &(s_conn.sin_addr)) <= 0) {
-      handle_error_hard("invalid IPv4 address received");
+        close(sock);
+        handle_error_hard("invalid IPv4 address received");
     }
 
     if (connect(sock, (struct sockaddr *) &s_conn, sizeof s_conn) == -1) {
+        close(sock);
         handle_error_hard("unable to connect to remote server");
     }
 
@@ -93,17 +89,23 @@ void authenticate(SSL *ssl, int sock) {
     fflush(stdout);
 
     if (read(STDIN_FILENO, buffer, MAX_BUFFER_SIZE * sizeof(char)) == -1) {
+        SSL_free(ssl);        /* release connection state */
+        close(sock);
         handle_error_hard("cannot read from standard input");
     }else if (buffer[strlen(buffer) - 1] == '\n') {
         buffer[strlen(buffer) - 1] = '\0';
     }
 
     if (SSL_write(ssl, buffer, strlen(buffer) + 1) == -1) {
+        SSL_free(ssl);        /* release connection state */
+        close(sock);
         handle_error_hard("cannot write to remote server");
     }
 
     memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
+        SSL_free(ssl);        /* release connection state */
+        close(sock);
         handle_error_hard("cannot read from remote server");
     }
 
@@ -121,6 +123,8 @@ void authenticate(SSL *ssl, int sock) {
 
     /* And then, print out the data received from the server */
     if (write(STDOUT_FILENO, buffer, strlen(buffer) + 1) == -1) {
+        SSL_free(ssl);        /* release connection state */
+        close(sock);
         handle_error_hard("cannot write to standard output");
     }
 }
@@ -131,27 +135,34 @@ void handle_remote_connection(SSL_CTX *ctx, int sock) {
     fd_set master, read_fds;
     char buffer[MAX_BUFFER_SIZE];
 
-    SSL *ssl = SSL_new (ctx);           /* get new SSL state with context */
+    SSL *ssl = SSL_new(ctx);           /* get new SSL state with context */
     SSL_set_fd(ssl, sock);      /* set connection socket to SSL state */
 
     if (SSL_connect(ssl) <= 0) {
         _OpenSSL_handle_error("SSL-connecting failed");
     }
 
-    _OpenSSL_get_certificates(ssl);
-    printf("Is it ok? ");
+    _OpenSSL_get_certificate(ssl);
+    printf("Are you sure you want connect to the server having the "
+    "aforementioned certificate (yes/no) ? ");
     fflush(stdout);
     memset(buffer, '\0', MAX_BUFFER_SIZE * sizeof(char));
+
     if (read(STDIN_FILENO, buffer, MAX_BUFFER_SIZE) == -1) {
+        SSL_free(ssl);        /* release connection state */
+        close(sock);
         handle_error_hard("cannot read from standard input");
     }else if (buffer[strlen(buffer) - 1] == '\n') {
         buffer[strlen(buffer) - 1] = '\0';
     }
 
     if (SSL_write(ssl, buffer, strlen(buffer) + 1) == -1) {
+        SSL_free(ssl);        /* release connection state */
+        close(sock);
         handle_error_hard("cannot write to remote server");
     }
-    if ((strcmp(buffer, "yes") != 0 && strcmp(buffer, "y") != 0)) {
+    if ((strcmp(buffer, A_ACCEPT_CERT_YES) != 0
+        && strcmp(buffer, A_ACCEPT_CERT_Y) != 0)) {
         exit(EXIT_SUCCESS);
     }
 
@@ -181,6 +192,8 @@ void handle_remote_connection(SSL_CTX *ctx, int sock) {
     for (;;) {
         read_fds = master;
         if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
+            SSL_free(ssl);        /* release connection state */
+            close(sock);
             handle_error_hard("in select");
         }
 
@@ -191,20 +204,26 @@ void handle_remote_connection(SSL_CTX *ctx, int sock) {
 
                 if (i == STDIN_FILENO) {
                     if (read(STDIN_FILENO, buffer, MAX_BUFFER_SIZE * sizeof(char)) == -1) {
+                        SSL_free(ssl);        /* release connection state */
+                        close(sock);
                         handle_error_hard("cannot read from standard input");
                     }
 
                     /* Encrypt using SSL the message and send it to the server */
                     if (SSL_write(ssl, buffer, strlen(buffer) + 1) == -1) {
+                        SSL_free(ssl);        /* release connection state */
+                        close(sock);
                         handle_error_hard("cannot write to remote server");
                     }
                 }else if (i == sock) {
                     /* Read and decrypt using SSL the message received */
                     if ((nbytes = SSL_read(ssl, buffer, MAX_BUFFER_SIZE)) == -1) {
+                        SSL_free(ssl);        /* release connection state */
+                        close(sock);
                         handle_error_hard("cannot read from remote server");
                     }else if (nbytes == 0) {
                         /* Close the connection and exit the function */
-                        SSL_free (ssl);        /* release connection state */
+                        SSL_free(ssl);        /* release connection state */
                         close(sock);
                         return;
                     }else{
