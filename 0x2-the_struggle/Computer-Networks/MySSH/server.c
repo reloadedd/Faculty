@@ -74,6 +74,21 @@ int main() {
         handle_error_hard("unable to mark the socket as passive in listen");
     }
 
+    /* Checking if the private key and the certificate file exists and are
+     * readable before proceeding further.
+     */
+    if (access(CERTIFICATE, R_OK) != 0) {
+        size_t len = sizeof(CERTIFICATE) + 37;
+        char err[len];
+        snprintf(err, len, "unable to read '%s' certificate file", CERTIFICATE);
+        handle_error_hard(err);
+    } else if (access(CERTIFICATE_KEY, R_OK) != 0) {
+        size_t len = sizeof(CERTIFICATE_KEY) + 37;
+        char err[len];
+        snprintf(err, len, "unable to read '%s' private key file", CERTIFICATE_KEY);
+        handle_error_hard(err);
+    }
+
     /* Display a cool banner */
     display_banner();
 
