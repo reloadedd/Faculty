@@ -57,9 +57,17 @@ class Encryptor:
         with open(filename, "w") as encrypted:
             encrypted.write(self.ciphertext)
 
-    def encrypt(self) -> None:
+    def encrypt(self, key: str = '') -> None:
         """Perform the encryption using the generated key."""
-        key = self.__generate_random_key()
+        if not key:
+            key = self.__generate_random_key()
+        else:
+            if not key.isupper():
+                key = key.upper()
+            display_verbose(f"Encrypting using custom key "
+                            f"[green]{key}[/green] of length "
+                            f"[yellow]{len(key)}[/yellow]")
+
         self.ciphertext = [''] * len(self.plaintext)
 
         # A separate index for key -- only incremented if the current character

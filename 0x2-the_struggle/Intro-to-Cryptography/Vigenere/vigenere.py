@@ -2,7 +2,7 @@
 
 # Copyright (c) 2021 reloadedd <reloadedd@protonmail.com>
 import argparse
-from utils import display_error, display_info
+from utils import display_error, display_info, display_verbose
 from Encryptor import Encryptor
 from Decryptor import Decryptor
 
@@ -19,6 +19,8 @@ def main():
 
     args.add_argument("-e", "--encrypt", help="Encrypt the input file",
                       action="store_true", dest="mode_encrypt")
+    args.add_argument('-k', '--key', help="Add custom key for encryption or "
+                                          "decryption")
     args.add_argument("-d", "--decrypt", help="Decrypt the input file",
                       action="store_true", dest="mode_decrypt")
     args.add_argument("-i", "--input-file", help="The file from which the text"
@@ -56,10 +58,14 @@ def main():
     if parser.mode_encrypt:
         # Creating a new Encryptor object and uploading the plaintext to be
         # encrypted with a random key
-        encrypt = Encryptor(parser.verbose)
-        encrypt.read_plaintext_from_file(INPUT_FILE)
-        encrypt.encrypt()
-        encrypt.save_ciphertext_to_file(OUTPUT_FILE)
+        encryptor = Encryptor(parser.verbose)
+        encryptor.read_plaintext_from_file(INPUT_FILE)
+
+        if parser.key:
+            encryptor.encrypt(parser.key)
+        else:
+            encryptor.encrypt()
+        encryptor.save_ciphertext_to_file(OUTPUT_FILE)
 
         display_info("Encryption performed successfully.")
         display_info(f"Saved encrypted text to '{OUTPUT_FILE}'")
@@ -68,7 +74,15 @@ def main():
         # object which will crack the key by itself
         enigma = Decryptor(parser.verbose)
         enigma.read_ciphertext_from_file(INPUT_FILE)
-        decrypted_key = enigma.crack_key()
+
+        if parser.key:
+            decrypted_key = parser.key
+            display_verbose(f"Decrypting using custom key "
+                            f"[green]{decrypted_key}[/green] of length "
+                            f"[yellow]{len(decrypted_key)}[/yellow]")
+        else:
+            decrypted_key = enigma.crack_key()
+
         enigma.decrypt(decrypted_key)
         enigma.save_decrypted_plaintext_to_file(OUTPUT_FILE)
 

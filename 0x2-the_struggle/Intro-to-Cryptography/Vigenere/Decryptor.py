@@ -73,6 +73,39 @@ class Decryptor:
             return current_key_length
         return -1
 
+    def crack_key(self) -> str:
+        """Crack the key of the encrypted text.
+
+        :returns: the cracked key
+        """
+        if (key_length := self.compute_key_length()) == -1:
+            display_error("Couldn't find the key because the ciphertext is "
+                          "too small.")
+
+        key = [''] * key_length
+
+        for j in track(range(key_length), description='⚠️ Decrypting...'):
+            s = -1
+
+            while s < ENGLISH_ALPHABET_LENGTH:
+                s += 1
+                mic = self.__determine_mutual_index_of_coincidence(
+                    j, key_length, s
+                )
+
+                if 0.058 <= mic <= 0.072:
+                    break
+
+            key[j] = chr((ENGLISH_ALPHABET_LENGTH - s) %
+                         ENGLISH_ALPHABET_LENGTH + 65)
+
+        printable_key = ''.join(key)
+        if self.verbose:
+            display_verbose(f'Found key length: [yellow]{key_length}[/yellow]')
+            display_verbose(f'Found key: [green]{printable_key}[/green]')
+
+        return printable_key
+
     @staticmethod
     def shift(array: list, times: int) -> None:
         """Rotate the elements of the array by the given parameter.
@@ -110,39 +143,6 @@ class Decryptor:
             (shifted_occurrence_table[symbol] / len(partial_ciphertext))
             for symbol in ENGLISH_ALPHABET
         )
-
-    def crack_key(self) -> str:
-        """Crack the key of the encrypted text.
-
-        :returns: the cracked key
-        """
-        if (key_length := self.compute_key_length()) == -1:
-            display_error("Couldn't find the key because the ciphertext is "
-                          "too small.")
-
-        key = [''] * key_length
-
-        for j in track(range(key_length), description='⚠️ Decrypting...'):
-            s = -1
-
-            while s < ENGLISH_ALPHABET_LENGTH:
-                s += 1
-                mic = self.__determine_mutual_index_of_coincidence(
-                    j, key_length, s
-                )
-
-                if 0.058 <= mic <= 0.072:
-                    break
-
-            key[j] = chr((ENGLISH_ALPHABET_LENGTH - s) %
-                         ENGLISH_ALPHABET_LENGTH + 65)
-
-        printable_key = ''.join(key)
-        if self.verbose:
-            display_verbose(f'Found key length: [yellow]{key_length}[/yellow]')
-            display_verbose(f'Found key: [green]{printable_key}[/green]')
-
-        return printable_key
 
     def read_ciphertext_from_file(self, filename: str) -> None:
         """Read the ciphertext from a file stored on the disk.
