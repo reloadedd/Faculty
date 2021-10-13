@@ -16,9 +16,11 @@ class State:
         # On which shore the boat belongs in this moment of time
         self.position_of_boat = boat
 
-    def update(self, person: int, boat: int):
+    def update_person(self, person: int):
         self.shore[person - 1] = \
-            True if boat == FINAL_SHORE else False
+            True if self.position_of_boat == FINAL_SHORE else False
+
+    def update_boat(self, boat: int):
         self.position_of_boat = boat
 
     def get_husband(self, wife: int):
@@ -93,10 +95,12 @@ def transition(state: State, driver: int, passenger: int,
                transition_type: int) -> State:
     new_state = State(state.shore.copy(), state.position_of_boat)
     if transition_type == FORWARD:
-        new_state.update(passenger, FINAL_SHORE)
-        new_state.update(driver, FINAL_SHORE)
+        new_state.update_boat(FINAL_SHORE)
+        new_state.update_person(passenger)
+        new_state.update_person(driver)
     else:
-        new_state.update(passenger, INITIAL_SHORE)
-        new_state.update(driver, INITIAL_SHORE)
+        new_state.update_boat(INITIAL_SHORE)
+        new_state.update_person(passenger)
+        new_state.update_person(driver)
 
     return new_state
