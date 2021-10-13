@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
-INITIAL_SHORE = 0
-FINAL_SHORE = 1
-FORWARD = 2
-BACKWARDS = 3
-NUMBER_OF_COUPLES = -1
+from constants import *
 
 
 class State:
@@ -35,7 +31,7 @@ class State:
         if self.shore[wife - 1] != \
                 self.shore[self.get_husband(passenger) - 1] and \
                 any([self.shore[i] == self.shore[wife - 1]
-                     for i in range(NUMBER_OF_COUPLES)]):
+                     for i in range(len(self.shore) // 2)]):
             return False
         return True
 
@@ -95,31 +91,12 @@ def validate_transition(state: State, driver: int, passenger: int,
 
 def transition(state: State, driver: int, passenger: int,
                transition_type: int) -> State:
+    new_state = State(state.shore.copy(), state.position_of_boat)
     if transition_type == FORWARD:
-        state.update(passenger, FINAL_SHORE)
-        state.update(driver, FINAL_SHORE)
+        new_state.update(passenger, FINAL_SHORE)
+        new_state.update(driver, FINAL_SHORE)
     else:
-        state.update(passenger, INITIAL_SHORE)
-        state.update(driver, INITIAL_SHORE)
+        new_state.update(passenger, INITIAL_SHORE)
+        new_state.update(driver, INITIAL_SHORE)
 
-    return State(state.shore.copy(), state.position_of_boat)
-
-
-def main():
-    global NUMBER_OF_COUPLES
-    NUMBER_OF_COUPLES = int(input('INFO\tEnter the number of couples >>> '))
-
-    couples = {i: i + NUMBER_OF_COUPLES for i in
-               range(1, NUMBER_OF_COUPLES + 1)}
-    print(f'INFO\tThe pair of couples: {couples}')
-
-    initial_state = create_initial_state(NUMBER_OF_COUPLES * 2)
-
-    print(initial_state.shore)
-    print(f'E ok tranzitia? {validate_transition(initial_state, 1, 3, FORWARD)}')
-    next_state = transition(initial_state, 8, 6, FORWARD)
-    print(next_state.shore)
-
-
-if __name__ == '__main__':
-    main()
+    return new_state
