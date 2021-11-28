@@ -7,7 +7,7 @@ from discord.ext import commands
 # Local imports
 from bot.constants import Color, TOKEN, BANNER
 from bot.helpers import attach_embed_info_and_send, get_roles,\
-    check_if_locked_up
+    check_if_locked_up, get_assign_help_menu
 from bot.RevampedHelpMenu import RevampedHelpMenu
 from keep_alive import keep_alive
 
@@ -43,7 +43,10 @@ async def create_all_roles(ctx: commands.Context):
                                 mentionable=True,
                                 reason='Genesis')
 
-    await attach_embed_info_and_send(ctx, f'Roles: {roles + colored_roles}', Color.CYAN.value)
+    colored_roles = [role[0] for role in colored_roles]
+    await attach_embed_info_and_send(ctx,
+                                     f'Roles: {roles + colored_roles}',
+                                     Color.CYAN.value)
 
 
 @BOT.command(name='singularity', help="Remove all roles created at genesis - "
@@ -81,7 +84,7 @@ async def activate_singularity(ctx):
                                          Color.RED.value)
 
 
-@BOT.command(name='assign', help='Assigns year & group roles to the user')
+@BOT.command(name='assign', help=get_assign_help_menu())
 @check_if_locked_up
 async def assign(ctx: commands.Context, *args):
     """Assign role(s) to the calling user.

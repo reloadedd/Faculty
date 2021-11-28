@@ -6,7 +6,7 @@ from functools import wraps
 from discord.ext import commands
 
 # Local imports
-from .constants import Color, QUOTES, LOCKED_COMMANDS
+from .constants import Color, QUOTES, LOCKED_COMMANDS, HOF_LOGO
 
 
 #######
@@ -17,8 +17,10 @@ async def attach_embed_info_and_send(ctx: commands.Context = None,
                                      color: Color = None,
                                      **kwargs):
     embed = discord.Embed(description=message, colour=color)
-    # embed.set_thumbnail(url=f'{BOT.user.avatar_url}')
-    # embed.set_footer(text=random.choice(QUOTES))
+    embed.set_thumbnail(url=f'{HOF_LOGO}')
+    embed.set_footer(text=random.choice(QUOTES))
+    # embed.set_footer(text="\tSatoshi Nakamoto, Hacker of FII", icon_url=url)
+
     await ctx.send(embed=embed, **kwargs)
 
 
@@ -47,6 +49,17 @@ def get_roles():
     ]
 
     return roles, colored
+
+
+def get_assign_help_menu():
+    assign_help_menu = [
+        'Assign the requested role to the user. Available roles:']
+    roles, colored_roles = get_roles()
+    colored_roles = [role[0] for role in colored_roles]
+    for role in roles + colored_roles:
+        if not ('YEAR' in role or 'MASTER' in role or 'TEACHER' in role):
+            assign_help_menu.append(f'\n\t- {role}')
+    return ''.join(assign_help_menu)
 
 
 #######
