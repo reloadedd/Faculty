@@ -1,0 +1,14 @@
+[package]
+name = "homework_01"
+authors = ["Ionut Rosca <ionut.rosca@info.uaic.ro>"]
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+aws-config = "0.8.0"
+aws-sdk-secretsmanager = "0.8.0"
+tokio = { version = "1", features = ["full"] }
+reqwest = "0.11.9"
+json = "0.12.4"
