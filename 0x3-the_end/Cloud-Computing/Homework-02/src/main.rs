@@ -24,15 +24,26 @@ mod constants;
 mod network;
 mod utils;
 mod http;
+mod db;
+
+#[macro_use]
+extern crate serde;
+extern crate serde_json;
+extern crate serde_derive;
+extern crate core;
 
 use std::net::TcpListener;
 use std::io::prelude::*;
 use std::thread;
 use std::sync::{Arc, mpsc, Mutex};
 use crate::network::Router;
-use crate::http::status_codes::HTTP_METHOD_NOT_ALLOWED;
+use crate::http::status_codes::{*};
+
 
 fn main() {
+    /* Setup the database */
+    db::config::setup();
+
     let socket = TcpListener::bind(
         format!("{}:{}", constants::IP_ADDRESS, constants::PORT)
     ).unwrap();
@@ -49,11 +60,12 @@ fn main() {
     for thread_id in 0 .. constants::THREADS_COUNT {
         let receiver = Arc::clone(&receiver);
 
-        pool.push(thread::spawn(move || loop {
-            let job = receiver.lock().unwrap().recv().unwrap();
-            println!("INFO\tCaporalul [ {} ] va executa aceasta sarcina.", thread_id);
-            job();
-        })
+        pool.push(thread::spawn(move ||
+            loop {
+                let job = receiver.lock().unwrap().recv().unwrap();
+                println!("INFO\tCaporalul [ {} ] va executa aceasta sarcina.", thread_id);
+                job();
+            })
         );
     }
 
@@ -73,12 +85,15 @@ fn main() {
             );
 
             let method = request.method.as_str();
+            let router = Router::new(request.body);
+
             let response = match method {
-                "GET" =>    Router::get(&request.url),
-                "POST" =>   Router::post(&request.url),
-                "PUT" =>    Router::put(&request.url),
-                "DELETE" => Router::delete(&request.url),
-                _ => format!("HTTP/1.1 {HTTP_METHOD_NOT_ALLOWED} Method Not Allowed\r\n\r\nNope.")
+                "GET" => router.get(&request.url),
+                "POST" => router.post(&request.url),
+                "PUT" => router.put(&request.url),
+                "DELETE" => router.delete(&request.url),
+                _ => format!("HTTP/1.1 {} {}\r\n\r\nNope.",
+                             HTTP_METHOD_NOT_ALLOWED.0, HTTP_METHOD_NOT_ALLOWED.1)
             };
 
             session.write(response.as_bytes()).unwrap();

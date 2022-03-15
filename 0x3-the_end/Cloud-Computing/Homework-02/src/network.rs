@@ -21,9 +21,9 @@
  *********************************************************************************/
 
 use std::collections::HashMap;
-use crate::constants;
 use crate::utils;
 use crate::http::status_codes::{*};
+use crate::db::entities::{User};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -50,7 +50,6 @@ impl HttpRequest {
         let status_line = headers[0];
 
         let s: Vec<&str> = status_line.split(" ").collect();
-        println!("DEBUG\ts = {:?}", s);
         let method = s[0].to_string();  /* For instance, GET */
         let url = s[1].to_string();     /* For instance, /metrics */
         let version = s[2].to_string(); /* For instance, HTTP/1.1 */
@@ -70,24 +69,156 @@ impl HttpRequest {
 
 #[derive(Debug)]
 pub struct Router {
-    pub method: String
+    pub body: String
 }
 
 impl Router {
-    pub fn get(path: &str) -> String {
-        utils::make_response("Hello", &HTTP_OK)
+    pub fn new(request_body: String) -> Self {
+        Router { body: request_body }
     }
 
-    pub fn post(path: &str) -> String {
-        utils::make_response("Hello", &HTTP_OK)
+    pub fn get(&self, path: &str) -> String {
+        let path_components = path.split("/").collect::<Vec<&str>>();
+
+        match path_components[1] {
+            "users" => {
+                if path_components.len() == 3 && path_components[2] != "" {
+                    User::get(Some(path_components[2]))
+                } else {
+                    User::get(None)
+                }
+            }
+            _ => utils::make_response(&r#"
+                {
+                    "status": "error",
+                    "message": "Inexistent API route."
+                }
+                "#, &HTTP_NOT_FOUND
+            )
+        }
     }
 
-    pub fn put(path: &str) -> String {
-        utils::make_response("Hello", &HTTP_OK)
+    pub fn post(&self, path: &str) -> String {
+        if serde_json::from_str::<User>(&self.body).is_err() {
+            return utils::make_response(r#"
+                {
+                  "status": "error",
+                  "message": "The JSON received does not match the specifications of the API."
+                }"#, &HTTP_BAD_REQUEST)
+        }
+
+        let path_components = path.split("/").collect::<Vec<&str>>();
+        match path_components[1] {
+            "users" => {
+                let user = User::new(&self.body);
+
+                if path_components.len() >= 3 && path_components[2] != "" {
+                    utils::make_response(&r#"
+                        {
+                            "status": "error",
+                            "message": "Unreasonable POSTing to something else than /users route."
+                        }
+                        "#, &HTTP_NOT_ACCEPTABLE
+                    )
+                } else {
+                    user.post()
+                }
+            }
+            _ => utils::make_response(&r#"
+                {
+                    "status": "error",
+                    "message": "Inexistent API route."
+                }
+                "#, &HTTP_NOT_FOUND
+            )
+        }
     }
 
-    pub fn delete(path: &str) -> String {
-        utils::make_response("Hello", &HTTP_OK)
+    pub fn put(&self, path: &str) -> String {
+        if serde_json::from_str::<User>(&self.body).is_err() {
+            return utils::make_response(r#"
+                {
+                  "status": "error",
+                  "message": "The JSON received does not match the specifications of the API."
+                }"#, &HTTP_BAD_REQUEST)
+        }
+
+        let path_components = path.split("/").collect::<Vec<&str>>();
+        match path_components[1] {
+            "users" => {
+                if path_components.len() == 2 ||
+                    (path_components.len() == 3 && path_components[2] == "") {
+                        utils::make_response(r#"
+                            {
+                              "status": "error",
+                              "message": "Cannot PUT the entire collection."
+                            }"#, &HTTP_METHOD_NOT_ALLOWED
+                        )
+                } else if path_components.len() == 3 {
+                    let user = User::new(&self.body);
+
+                    user.put(path_components[2])
+                } else {
+                    utils::make_response(r#"
+                        {
+                          "status": "error",
+                          "message": "Invalid API route."
+                        }"#, &HTTP_NOT_FOUND
+                    )
+                }
+            }
+            _ => {
+                utils::make_response(r#"
+                    {
+                      "status": "error",
+                      "message": "Invalid API route."
+                    }"#, &HTTP_NOT_FOUND
+                )
+            }
+        }
+    }
+
+    pub fn delete(&self, path: &str) -> String {
+        if serde_json::from_str::<User>(&self.body).is_err() {
+            return utils::make_response(r#"
+                {
+                  "status": "error",
+                  "message": "The JSON received does not match the specifications of the API."
+                }"#, &HTTP_BAD_REQUEST)
+        }
+
+        let path_components = path.split("/").collect::<Vec<&str>>();
+        match path_components[1] {
+            "users" => {
+                if path_components.len() == 2 ||
+                    (path_components.len() == 3 && path_components[2] == "") {
+                    utils::make_response(r#"
+                            {
+                              "status": "error",
+                              "message": "Cannot DELETE the entire collection."
+                            }"#, &HTTP_METHOD_NOT_ALLOWED
+                    )
+                } else if path_components.len() == 3 {
+                    let user = User::new(&self.body);
+
+                    user.delete(path_components[2])
+                } else {
+                    utils::make_response(r#"
+                        {
+                          "status": "error",
+                          "message": "Invalid API route."
+                        }"#, &HTTP_NOT_FOUND
+                    )
+                }
+            }
+            _ => {
+                utils::make_response(r#"
+                    {
+                      "status": "error",
+                      "message": "Invalid API route."
+                    }"#, &HTTP_NOT_FOUND
+                )
+            }
+        }
     }
 }
-

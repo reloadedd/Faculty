@@ -32,8 +32,11 @@ pub const BANNER: &str = "
 ██╔══██╗██╔══╝  ╚════██║   ██║   ██╔══╝  ██║   ██║██║         ██╔══██║██╔═══╝ ██║
 ██║  ██║███████╗███████║   ██║   ██║     ╚██████╔╝███████╗    ██║  ██║██║     ██║
 ╚═╝  ╚═╝╚══════╝╚══════╝   ╚═╝   ╚═╝      ╚═════╝ ╚══════╝    ╚═╝  ╚═╝╚═╝     ╚═╝
-                            [ Author: Ionut Rosca ]
+        [ Password Manager which manage Passwords™ | Author: Ionut Rosca ]
 ";
 
 /* General constants */
 pub const THREADS_COUNT: i32 = 32;
+
+/* Database */
+pub const DB_PATH: &str = "./db/data.sqlite3";
