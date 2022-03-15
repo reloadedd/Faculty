@@ -39,7 +39,15 @@ impl User {
                      })
                  }) {
                     Ok(whatever) => whatever,
-                    Err(e) => panic!("ERROR: {e}")
+                    Err(e) => {
+                        return utils::make_response(&format!(r#"
+                            {{
+                                "status": "error",
+                                "message": "The specified user does not exist."
+                            }}
+                            "#), &HTTP_NOT_FOUND
+                        )
+                    }
                 };
 
                 utils::make_response(&format!(r#"
