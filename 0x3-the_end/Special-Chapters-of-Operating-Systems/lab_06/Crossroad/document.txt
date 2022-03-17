@@ -1,0 +1,15 @@
+# Structura
+
+Programul este impartit in 2 parti: CCM si RCM. Executabilele sunt in cmake-build-debug/
+
+# Mecanisme de sincronizare
+Programul CCM porneste n instance ale programului RCM.
+Programele RCM creaza fiecare cate un mutex cu un nume propriu care sa le poata identifica.
+Programul CCM deschide cele n mutex-uri.
+De asemenea, programele creeaza, respectiv, deschid pentru citire/scriere memory mapping-urile cerute in cerinta.
+Programul CCM incearca sa obtina un mutex de fiecare data cand citeste din memory map (si pentru un oarecare motiv nu
+reuseste - aici m-am blocat).
+Valorile citite vor fi stocate intr-un array, in forma: array[#instanta RCM] = valoarea la momentul T.
+Toate instantele RCM vor fi oprite de catre o bariera la terminarea fiecarei iteratii a for-ului propriu.
+
+Nota: Este implementat kill switch-ul in cazul in care timeout-ul depaseste de 3 ori 10 secunde.

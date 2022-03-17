@@ -1,0 +1,85 @@
+[+] Processor Information:
+	[-] Number of NUMA nodes: 1
+	[-] Number of physical processor packages: 1
+	[-] Number of processor cores: 8
+	[-] Number of logical processors: 8
+	[-] Number of processor L1/L2/L3 caches: 16/8/8
+
+[+] NUMA Information:
+	[-] Not a NUMA system.
+
+[+] CPU Sets Information:
+	[~] No *default* CPU Sets were set.
+	[~] System CPU Set #0
+		[-] Id: 256
+		[-] Group: 0
+		[-] Logical Processor Index: 0
+		[-] Core Index: 0
+		[-] Last Level CacheIndex: 0
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] System CPU Set #1
+		[-] Id: 257
+		[-] Group: 0
+		[-] Logical Processor Index: 1
+		[-] Core Index: 1
+		[-] Last Level CacheIndex: 1
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] System CPU Set #2
+		[-] Id: 258
+		[-] Group: 0
+		[-] Logical Processor Index: 2
+		[-] Core Index: 2
+		[-] Last Level CacheIndex: 2
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] System CPU Set #3
+		[-] Id: 259
+		[-] Group: 0
+		[-] Logical Processor Index: 3
+		[-] Core Index: 3
+		[-] Last Level CacheIndex: 3
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] System CPU Set #4
+		[-] Id: 260
+		[-] Group: 0
+		[-] Logical Processor Index: 4
+		[-] Core Index: 4
+		[-] Last Level CacheIndex: 4
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] System CPU Set #5
+		[-] Id: 261
+		[-] Group: 0
+		[-] Logical Processor Index: 5
+		[-] Core Index: 5
+		[-] Last Level CacheIndex: 5
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] System CPU Set #6
+		[-] Id: 262
+		[-] Group: 0
+		[-] Logical Processor Index: 6
+		[-] Core Index: 6
+		[-] Last Level CacheIndex: 6
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] System CPU Set #7
+		[-] Id: 263
+		[-] Group: 0
+		[-] Logical Processor Index: 7
+		[-] Core Index: 7
+		[-] Last Level CacheIndex: 7
+		[-] Numa Node Index: 0
+		[-] Efficiency Class: 0
+		[-] Scheduling Class: 0
+	[~] Total number of CPU Sets: 8.

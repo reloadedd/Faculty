@@ -1,0 +1,27 @@
+Note
+----
+	- Orice output printat pe ecran va avea in componenta numele programului ce l-a produs.
+	- Orice eroare va determina terminarea programului respectiv.
+
+Descriere
+---------
+	- Programul main incepe prin a lansa in executie programul P1 care va crea ceea ce este cerut in
+	cerinta. Pentru a seta permisiunile se procedeaza in felul urmator:
+		-- SID-ul Owner-ului este determinat folosind informatiile din procesul curent.
+		-- SID-ul pentru Everyone este determinat folosing CreateWellKnownSid().
+		-- Permisiunile sunt setate prin "umplerea" unui vector de structuri de tipul 
+		EXPLICIT_ACCESS. Dupa ce s-au setat acestea, se seteaza intrarile in ACL si se creeaza &
+		initializeaza & seteaza un security descriptor care apoi va fi dat ca parametru pentru
+		functiile ce se folosesc de acesta.
+		-- Acesti pasi sunt universali pentru orice "lucru" care are setate permisiuni custom.
+	- Dupa ce executia lui P1 *este finalizatata*, se lanseaza in executie P2, care va realiza 
+	cerintele necesare si va loga in LOGS\P2.txt, acolo unde se cere.
+	- P2 va lansa in executie pe P3, care, la fel, va realiza cerintele necesare si va loga acolo unde
+	este necesar, in LOGS\P3.txt
+	- La final, in programul main se completeaza un security descriptor unde se seteaza flag-ul 
+	DENY_ACCESS pe permisiunea PROCESS_CREATE_PROCESS si se lanseaza in executie, din nou, P2.
+		-- Din pacate, desi flag-ul este setat pe DENY, P2 tot reuseste sa creeze procese, desi
+		pare setat corect. Am setat Trustee-ul atat pe Owner cat si pe Everyone, insa in zadar.
+		 (Comentariul autorului: mi se pare fenomenal, Windows-ul e de vina)
+
+P.S: Nu am facut modificarea permisiunii cheiii de registru. (No idea how)

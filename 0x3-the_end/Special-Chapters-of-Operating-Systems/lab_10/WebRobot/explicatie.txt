@@ -1,0 +1,12 @@
+Programul parcurge urmatorii pasi:
+	1. Se creeaza un folder separat (results/) in care vor fi incluse toate fisierele si subdirectoarele si devine
+		dicrectorul curent.
+	2. Se efectueaza un request GET catre /config/<nr_matricol> si se salveaza in config.txt
+	3. Se efectueaza un request GET catre /executabile/<nr_matricol> si se salveaza in executabile.txt
+	4. Se citeste fisierul config.txt si se creeaza fiecare subdirector in folder-ul config/ (care, la 
+		fel ca si toate celalalte fisiere, este salvat in folder-ul results/).
+	5. Folosind 2 strtok-uri, se desparte fisierul execuabile.txt in mai multe linii, iar liniile la 
+		randul lor se despart in path si link. (improvizatie 100%)
+	6. Se trimite request-ul de tipul POST cu datele cerute catre server.
+
+*bonus.png: Screenshot din Wireshark pe un server creat local.
