@@ -1,7 +1,7 @@
 let http = require('http');
 
 const HTTP_OK   = 200;
-const PORT      = 1337;
+const PORT      = 80;
 
 console.log(`INFO\tStarting server which will listen at port ${PORT}...`);
 

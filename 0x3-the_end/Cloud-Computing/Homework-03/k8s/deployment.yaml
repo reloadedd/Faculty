@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: node-hello-app
+  namespace: k8s-apps
 spec:
   selector:
     matchLabels:
@@ -17,4 +18,4 @@ spec:
         image: us.gcr.io/warm-poetry-314721/node_hello_app:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 1337
+        - containerPort: 80
