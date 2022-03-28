@@ -17,7 +17,7 @@ http.createServer((req, res) => {
     <!DOCTYPE html>
     <html>
         <head>
-            <title>Florin Salam's Personal Booth</title>
+            <title>Whoa! You found me!</title>
         </head>
 
         <body style="background-color: black">
