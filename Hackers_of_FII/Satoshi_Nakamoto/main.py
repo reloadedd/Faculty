@@ -11,7 +11,8 @@ from bot.helpers import attach_embed_info_and_send, get_roles,\
 from bot.RevampedHelpMenu import RevampedHelpMenu
 from keep_alive import keep_alive
 
-BOT = commands.Bot(command_prefix='>')
+intents = discord.Intents.all()
+BOT = commands.Bot(command_prefix='>', intents=intents)
 BOT.help_command = RevampedHelpMenu()
 
 
