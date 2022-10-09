@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
+import re
 import random
 import discord
 from functools import wraps
-from discord.ext import commands
 from urllib import parse, request
-import re
 
 # Local imports
 from .constants import Color, QUOTES, LOCKED_COMMANDS, HOF_LOGO
@@ -51,17 +50,6 @@ def get_roles():
     ]
 
     return roles, colored
-
-
-def get_assign_help_menu():
-    assign_help_menu = [
-        'Assign the requested role to the user. Available roles:']
-    roles, colored_roles = get_roles()
-    colored_roles = [role[0] for role in colored_roles]
-    for role in roles + colored_roles:
-        if not ('YEAR' in role or 'MASTER' in role or 'TEACHER' in role):
-            assign_help_menu.append(f'\n\t- {role}')
-    return ''.join(assign_help_menu)
 
 
 def find_youtube_video(search_query):
