@@ -10,6 +10,7 @@ from bot.helpers import attach_embed_info_and_send, get_roles,\
 from keep_alive import keep_alive
 from bot.slash_client import SlashClient
 from bot.dropdown import DropdownView
+from bot import pprint
 
 BOT = SlashClient()
 
@@ -96,22 +97,32 @@ async def activate_singularity(interaction: discord.Interaction):
 @BOT.tree.command(name='create')
 async def create(interaction: discord.Interaction, channel_name: str) -> None:
     """Create channel for a CTF event."""
-    try:
-        await interaction.guild.create_text_channel(
-            channel_name,
-            reason=f'Requested by {interaction.user}',
-            category=list(
-                filter(lambda x: x.name == 'CTFs',
-                       interaction.guild.categories)
-            )[0]
+    overwrites = {
+        interaction.guild.default_role: discord.PermissionOverwrite(
+            view_channel=False
         )
-    except IndexError:
-        await attach_embed_info_and_send(
-            interaction,
-            'The category **CTFs** has not been created. Please create it.',
-            Color.RED.value
+    }
+
+    if not len(list(
+        filter(lambda x: x.name == 'CTFs',
+               interaction.guild.categories)
+    )):
+        pprint('[blue]INFO[/blue]\tThe category [bold]CTFs[/bold] has not been'
+               ' created. Creating it now...')
+        await interaction.guild.create_category(
+            name='CTFs',
+            reason='Created by the Discord Bot',
+            overwrites=overwrites
         )
-        return
+
+    await interaction.guild.create_text_channel(
+        channel_name,
+        reason=f'Requested by {interaction.user}',
+        category=list(
+            filter(lambda x: x.name == 'CTFs',
+                   interaction.guild.categories)
+        )[0]
+    )
 
     await attach_embed_info_and_send(
         interaction,
