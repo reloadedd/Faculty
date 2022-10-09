@@ -6,6 +6,7 @@ from discord import app_commands
 
 # Local imports
 from . import helpers
+from . import pprint
 
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ''
@@ -85,35 +86,45 @@ class Lautar(commands.GroupCog,
     async def canta(self,
                     interaction: discord.Interaction,
                     query: str) -> None:
-        """Streams from a URL (doesn't pre-download)"""
+        """Lăutaru' cântă cu dedicație sau link dă pă YT, SoundCloud etc."""
+        await interaction.response.defer(thinking=True)
+
         if 'https://' not in query:
             query = helpers.find_youtube_video(query)
 
-        async with interaction.channel.typing():
-            player = await YTDLSource.from_url(query,
-                                               loop=self.bot.loop,
-                                               stream=True)
+        player = await YTDLSource.from_url(query,
+                                           loop=self.bot.loop,
+                                           stream=True)
 
-            if self.voice_client is None:
-                if interaction.user.voice:
-                    self.voice_client = \
-                        await interaction.user.voice.channel.connect()
-                else:
-                    await interaction.response.send(
-                        "You are not connected to a voice channel."
-                    )
-                    raise commands.CommandError(
-                        "Author not connected to a voice channel.")
-            elif self.voice_client.is_playing():
-                self.voice_client.stop()
+        if self.voice_client is None:
+            if interaction.user.voice:
+                self.voice_client = \
+                    await interaction.user.voice.channel.connect()
+            else:
+                await interaction.response.send_message(
+                    "You are not connected to a voice channel.",
+                    ephemeral=True
+                )
+                pprint(f"[red]ERROR[/red]\t"
+                       f"{interaction.user} is not connected to a voice "
+                       f"channel.")
+                return
+        elif self.voice_client.is_playing():
+            self.voice_client.stop()
 
+        try:
             self.voice_client.play(
                 player,
-                after=lambda e: print(f'[red]ERROR[/red]\tPlayer error: {e}')
+                after=lambda e: pprint(f'[red]ERROR[/red]\tPlayer error: '
+                                       f'{e}')
                 if e else None
             )
+        except discord.errors.ClientException:
+            return
 
-        await interaction.response.send_message(f'Now playing: {player.title}')
+        await interaction.edit_original_response(
+            content=f'Now playing: {player.title}'
+        )
 
     @app_commands.command()
     async def volume(self,
@@ -151,3 +162,4 @@ class Lautar(commands.GroupCog,
     async def afara(self, interaction: discord.Interaction) -> None:
         """Stops and disconnects the bot from voice"""
         await self.voice_client.disconnect()
+        await interaction.response.send_message('Gata, boss. Am iesit!')

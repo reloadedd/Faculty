@@ -63,3 +63,4 @@ BANNER = """
 """
 
 HOF_LOGO = 'https://hackers-of-fii.s3.amazonaws.com/HoF_grayscale.png'
+JOIN_GIF_URL = 'https://hackers-of-fii.s3.amazonaws.com/bot_join.gif'
