@@ -17,12 +17,19 @@ async def attach_embed_info_and_send(interaction: discord.Interaction,
                                      message: str = None,
                                      color: Color = None,
                                      **kwargs):
+    # Parsing custom args
+    custom_args = {
+        'IS_DEFERRED': kwargs.pop('arg__is_deferred')
+    }
+
     embed = discord.Embed(description=message, colour=color)
     embed.set_thumbnail(url=f'{HOF_LOGO}')
     embed.set_footer(text=random.choice(QUOTES))
-    # embed.set_footer(text="\tSatoshi Nakamoto, Hacker of FII", icon_url=url)
 
-    await interaction.response.send_message(embed=embed, **kwargs)
+    if not custom_args['IS_DEFERRED']:
+        await interaction.response.send_message(embed=embed, **kwargs)
+    else:
+        await interaction.edit_original_response(embed=embed, **kwargs)
 
 
 def get_roles():

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import asyncio
 import discord
+import coloredlogs
+import logging
 from discord.ext import commands
 
 # Local imports
@@ -12,6 +14,10 @@ from bot.slash_client import SlashClient
 from bot.dropdown import DropdownView
 from bot import pprint
 
+coloredlogs.install()
+logger = logging.getLogger('discord')
+logger.setLevel(logging.INFO)
+logging.getLogger('discord.http').setLevel(logging.INFO)
 BOT = SlashClient()
 
 
@@ -34,17 +40,11 @@ async def assign(interaction):
 @check_if_locked_up
 async def create_all_roles(interaction: discord.Interaction):
     """Create all roles."""
-    roles, colored_roles = get_roles()
+    _, colored_roles = get_roles()
 
-    await attach_embed_info_and_send(interaction,
-                                     'Working on it...',
-                                     Color.GREEN.value,
-                                     delete_after=60)
+    await interaction.response.defer(thinking=True)
 
     guild = interaction.guild
-    for role in roles:
-        await guild.create_role(name=role, reason='Genesis')
-
     for role in colored_roles:
         await guild.create_role(name=role[0],
                                 color=role[1],
@@ -54,8 +54,9 @@ async def create_all_roles(interaction: discord.Interaction):
 
     colored_roles = [role[0] for role in colored_roles]
     await attach_embed_info_and_send(interaction,
-                                     f'Roles: {roles + colored_roles}',
-                                     Color.CYAN.value)
+                                     f'Created roles: {colored_roles}',
+                                     Color.CYAN.value,
+                                     arg__is_deferred=True)
 
 
 @BOT.tree.command(name='singularity',
@@ -65,15 +66,12 @@ async def create_all_roles(interaction: discord.Interaction):
 @check_if_locked_up
 async def activate_singularity(interaction: discord.Interaction):
     """Remove all roles created at genesis."""
-    roles = get_roles()[0] + [role_name[0] for role_name in get_roles()[1]]
+    await interaction.response.defer(thinking=True)
+    roles = [role_name[0] for role_name in get_roles()[1]]
     guild = interaction.guild
     success = True
 
-    await attach_embed_info_and_send(interaction,
-                                     'Working on it...',
-                                     Color.GREEN.value,
-                                     delete_after=60)
-
+    not_deleted = []
     for role_name in roles:
         role = discord.utils.get(guild.roles, name=role_name)
         if role:
@@ -82,16 +80,20 @@ async def activate_singularity(interaction: discord.Interaction):
             except discord.Forbidden:
                 success = False
         else:
-            success = False
+            not_deleted.append(role_name)
 
     if success:
         await attach_embed_info_and_send(interaction,
                                          'All roles have been destroyed.',
-                                         Color.GREEN.value)
+                                         Color.GREEN.value,
+                                         arg__is_deferred=True)
     else:
-        await attach_embed_info_and_send(interaction,
-                                         'Unable to destroy all roles.',
-                                         Color.RED.value)
+        await attach_embed_info_and_send(
+            interaction,
+            f"The following roles couldn't be deleted: {not_deleted}",
+            Color.RED.value,
+            arg__is_deferred=True
+        )
 
 
 @BOT.tree.command(name='create')
@@ -146,4 +148,8 @@ async def main():
         await BOT.start(TOKEN)
 
 
-asyncio.run(main())
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pprint('\n[blue]INFO[/blue]\tSee ya soon, baby.')
