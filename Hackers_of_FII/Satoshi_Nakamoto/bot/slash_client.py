@@ -1,4 +1,5 @@
 import discord
+from base64 import b64decode
 from discord.ext import commands
 
 # Local imports
@@ -14,7 +15,7 @@ class SlashClient(commands.Bot):
     async def setup_hook(self) -> None:
         await self.add_cog(Lautar(self), override=True)
         # self.tree.clear_commands(guild=None)
-        self.tree.copy_global_to(guild=discord.Object(id=914146847164092487))
+        # self.tree.copy_global_to(guild=discord.Object(id=914146847164092487))
         await self.tree.sync()
 
     async def on_ready(self) -> None:
@@ -45,3 +46,16 @@ class SlashClient(commands.Bot):
             embed = discord.Embed()
             embed.set_image(url=constants.JOIN_GIF_URL)
             await general.send(embed=embed)
+
+    async def on_message(self, message: discord.Message) -> None:
+        if message.author == self.user:
+            return
+
+        for something in constants.SURELY_NOT_RANDOM_RESPONSES_TO_MESSAGES:
+            something_decoded = b64decode(something).decode('utf-8')
+
+            if something_decoded in message.content:
+                await message.channel.send(b64decode(
+                    constants.SURELY_NOT_RANDOM_RESPONSES_TO_MESSAGES[
+                        something]).decode('utf-8')
+                )

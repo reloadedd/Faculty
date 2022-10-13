@@ -64,3 +64,12 @@ BANNER = """
 
 HOF_LOGO = 'https://hackers-of-fii.s3.amazonaws.com/HoF_grayscale.png'
 JOIN_GIF_URL = 'https://hackers-of-fii.s3.amazonaws.com/bot_join.gif'
+
+ENCODED_RESPONSES_PATH = './bot/messages.txt.encoded'
+SURELY_NOT_RANDOM_RESPONSES_TO_MESSAGES = dict()
+
+_lines = [
+    line.strip() for line in open(ENCODED_RESPONSES_PATH, 'r').readlines()
+]
+for i in range(0, len(_lines), 2):
+    SURELY_NOT_RANDOM_RESPONSES_TO_MESSAGES[_lines[i]] = _lines[i + 1]

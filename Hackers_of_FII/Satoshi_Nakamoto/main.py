@@ -3,11 +3,11 @@ import asyncio
 import discord
 import coloredlogs
 import logging
-from discord.ext import commands
+from discord import app_commands
 
 # Local imports
 from bot.constants import Color, TOKEN
-from bot.helpers import attach_embed_info_and_send, get_roles,\
+from bot.helpers import attach_embed_info_and_send, get_roles, \
     check_if_locked_up
 from keep_alive import keep_alive
 from bot.slash_client import SlashClient
@@ -22,8 +22,8 @@ BOT = SlashClient()
 
 
 @BOT.tree.command(name='assign')
-async def assign(interaction):
-    """Sends a message with our dropdown containing colours"""
+async def assign(interaction: discord.Interaction):
+    """Display a dropdown which lets you choose your role."""
 
     # Create the view containing our dropdown
     view = DropdownView()
@@ -36,7 +36,7 @@ async def assign(interaction):
 
 @BOT.tree.command(name='genesis',
                   description='Create all roles - Authorized access only.')
-@commands.has_permissions(manage_roles=True)
+@app_commands.checks.has_permissions(administrator=True)
 @check_if_locked_up
 async def create_all_roles(interaction: discord.Interaction):
     """Create all roles."""
@@ -46,11 +46,25 @@ async def create_all_roles(interaction: discord.Interaction):
 
     guild = interaction.guild
     for role in colored_roles:
-        await guild.create_role(name=role[0],
-                                color=role[1],
-                                hoist=True,
-                                mentionable=True,
-                                reason='Genesis')
+        await guild.create_role(
+            name=role[0],
+            color=role[1],
+            hoist=True,
+            mentionable=True,
+            reason='Genesis',
+            permissions=
+            discord.Permissions(
+                view_channel=True,
+                manage_emojis_and_stickers=True,
+                create_instant_invite=True,
+                change_nickname=True,
+                connect=True,
+                speak=True,
+                stream=True,
+                use_voice_activation=True,
+                request_to_speak=True) |
+            discord.Permissions.text()
+        )
 
     colored_roles = [role[0] for role in colored_roles]
     await attach_embed_info_and_send(interaction,
@@ -62,7 +76,7 @@ async def create_all_roles(interaction: discord.Interaction):
 @BOT.tree.command(name='singularity',
                   description='Remove all roles created at genesis - '
                               'Authorized access only.')
-@commands.has_permissions(manage_roles=True)
+@app_commands.checks.has_permissions(administrator=True)
 @check_if_locked_up
 async def activate_singularity(interaction: discord.Interaction):
     """Remove all roles created at genesis."""
@@ -96,18 +110,32 @@ async def activate_singularity(interaction: discord.Interaction):
         )
 
 
+@create_all_roles.error
+@activate_singularity.error
+async def error_handler(interaction: discord.Interaction,
+                        error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.MissingPermissions):
+        await attach_embed_info_and_send(
+            interaction,
+            'Could not execute command because of insufficient '
+            'permissions.',
+            Color.RED.value,
+            ephemeral=True
+        )
+
+
 @BOT.tree.command(name='create')
 async def create(interaction: discord.Interaction, channel_name: str) -> None:
     """Create channel for a CTF event."""
     overwrites = {
         interaction.guild.default_role: discord.PermissionOverwrite(
-            view_channel=False
+            view_channel=True
         )
     }
 
     if not len(list(
-        filter(lambda x: x.name == 'CTFs',
-               interaction.guild.categories)
+            filter(lambda x: x.name == 'CTFs',
+                   interaction.guild.categories)
     )):
         pprint('[blue]INFO[/blue]\tThe category [bold]CTFs[/bold] has not been'
                ' created. Creating it now...')
@@ -133,10 +161,88 @@ async def create(interaction: discord.Interaction, channel_name: str) -> None:
     )
 
 
-@BOT.tree.command(name='join', description='Joins the specified CTF channel.')
-async def join(interaction: discord.Interaction, channel: discord.TextChannel):
+@BOT.tree.command(name='join')
+async def join(interaction: discord.Interaction, channel: str):
     """Join the specified CTF channel."""
-    pass
+    _channel = discord.utils.get(interaction.guild.channels,
+                                 name=channel)
+
+    if not _channel:
+        await attach_embed_info_and_send(
+            interaction,
+            f'Invalid channel name.',
+            Color.RED.value,
+            ephemeral=True
+        )
+        return
+
+    await _channel.set_permissions(
+        interaction.user,
+        overwrite=discord.PermissionOverwrite(
+            add_reactions=True,
+            stream=True,
+            read_messages=True,
+            send_messages=True,
+            send_tts_messages=True,
+            embed_links=True,
+            attach_files=True,
+            read_message_history=True,
+            mention_everyone=True,
+            external_emojis=True,
+            create_public_threads=True,
+            external_stickers=True,
+            send_messages_in_threads=True
+        )
+    )
+
+    await attach_embed_info_and_send(
+        interaction,
+        f'Joined channel **{channel}**. Welcome on board!',
+        Color.GREEN.value,
+        ephemeral=True
+    )
+
+
+@BOT.tree.command(name='leave')
+async def leave(interaction: discord.Interaction, channel: str):
+    """Leave the specified CTF channel."""
+    _channel = discord.utils.get(interaction.guild.channels,
+                                 name=channel)
+
+    if not _channel:
+        await attach_embed_info_and_send(
+            interaction,
+            f'Invalid channel name.',
+            Color.RED.value,
+            ephemeral=True
+        )
+        return
+
+    await _channel.set_permissions(
+        interaction.user,
+        overwrite=discord.PermissionOverwrite(
+            add_reactions=False,
+            stream=False,
+            read_messages=False,
+            send_messages=False,
+            send_tts_messages=False,
+            embed_links=False,
+            attach_files=False,
+            read_message_history=False,
+            mention_everyone=False,
+            external_emojis=False,
+            create_public_threads=False,
+            external_stickers=False,
+            send_messages_in_threads=False
+        )
+    )
+
+    await attach_embed_info_and_send(
+        interaction,
+        f'Left channel **{channel}**. Aurevoir!',
+        Color.GREEN.value,
+        ephemeral=True
+    )
 
 
 # Start a webserver in another thread in order to keep the bot alive

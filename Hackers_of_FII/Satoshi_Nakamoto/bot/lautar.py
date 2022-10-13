@@ -76,7 +76,7 @@ class Lautar(commands.GroupCog,
     async def join(self,
                    interaction: discord.Interaction,
                    channel: discord.VoiceChannel) -> None:
-        """Joins a voice channel"""
+        """Mută lăutarul pe alt canal."""
         if self.voice_client is not None:
             return await self.voice_client.move_to(channel)
 
@@ -130,7 +130,7 @@ class Lautar(commands.GroupCog,
     async def volume(self,
                      interaction: discord.Interaction,
                      volume: int) -> None:
-        """Changes the player's volume"""
+        """Dă volumu' la refuz sau la nivel acceptabil pentru vecini."""
         if self.voice_client is None:
             return await interaction.response.send_message(
                 "Not connected to a voice channel."
@@ -139,8 +139,9 @@ class Lautar(commands.GroupCog,
         self.voice_client.source.volume = volume / 100
         await interaction.response.send_message(f"Changed volume to {volume}%")
 
-    @app_commands.command(name='resume', description='Resumes the song')
+    @app_commands.command(name='resume')
     async def resume(self, interaction: discord.Interaction):
+        """Lăutaru' începe iar să cânte."""
         if self.voice_client.is_paused():
             await self.voice_client.resume()
         else:
@@ -148,8 +149,9 @@ class Lautar(commands.GroupCog,
                 "The bot was not playing anything before this. "
                 "Use play_song command")
 
-    @app_commands.command(name='pause', description='Pause the song')
+    @app_commands.command(name='pause')
     async def pause(self, interaction: discord.Interaction):
+        """Face lăutaru' să tacă oleacă."""
         if self.voice_client.is_playing():
             await self.voice_client.pause()
         else:
@@ -157,9 +159,8 @@ class Lautar(commands.GroupCog,
                 "The bot is not playing anything at the moment."
             )
 
-    @app_commands.command(name='afara',
-                          description='Dă lăutaru\' afara de pe canal')
+    @app_commands.command(name='afara')
     async def afara(self, interaction: discord.Interaction) -> None:
-        """Stops and disconnects the bot from voice"""
+        """Dă lăutaru' afară de pe canal."""
         await self.voice_client.disconnect()
         await interaction.response.send_message('Gata, boss. Am iesit!')

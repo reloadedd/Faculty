@@ -28,3 +28,6 @@ package-lock.json
 
 *.dtmp
 *.bkp
+
+# Ignore everything with a dot (.)
+.*

@@ -17,9 +17,10 @@ async def attach_embed_info_and_send(interaction: discord.Interaction,
                                      message: str = None,
                                      color: Color = None,
                                      **kwargs):
+    _pop = lambda arg: kwargs.pop(arg) if kwargs.get(arg) else None
     # Parsing custom args
     custom_args = {
-        'IS_DEFERRED': kwargs.pop('arg__is_deferred')
+        'IS_DEFERRED': _pop('arg__is_deferred')
     }
 
     embed = discord.Embed(description=message, colour=color)

@@ -60,14 +60,23 @@ class Dropdown(discord.ui.Select):
                        f'[bold]{current_role}[/bold] for user '
                        f'[italic]{interaction.user}[/italic]')
 
-        await interaction.user.add_roles(role, reason='Chosen from Dropdown')
+        if role:
+            await interaction.user.add_roles(role,
+                                             reason='Chosen from Dropdown')
 
-        await attach_embed_info_and_send(
-            interaction,
-            f'You chose *{self.values[0]}*. Great!',
-            Color.GREEN.value,
-            ephemeral=True
-        )
+            await attach_embed_info_and_send(
+                interaction,
+                f'You chose *{self.values[0]}*. Great!',
+                Color.GREEN.value,
+                ephemeral=True
+            )
+        else:
+            await attach_embed_info_and_send(
+                interaction,
+                f'The role *{self.values[0]}* does not exist on the server.',
+                Color.RED.value,
+                ephemeral=True
+            )
 
 
 class DropdownView(discord.ui.View):
