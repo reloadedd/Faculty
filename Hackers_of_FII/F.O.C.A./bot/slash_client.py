@@ -15,8 +15,6 @@ class SlashClient(commands.Bot):
 
     async def setup_hook(self) -> None:
         await self.add_cog(Lautar(self), override=True)
-        # self.tree.clear_commands(guild=None)
-        # self.tree.copy_global_to(guild=discord.Object(id=914146847164092487))
         await self.tree.sync()
 
     async def on_ready(self) -> None:
@@ -27,8 +25,9 @@ class SlashClient(commands.Bot):
     async def on_member_join(self, member: discord.Member) -> None:
         guild = member.guild
         if guild.system_channel is not None:
-            to_send = f'Atențiune, națiune! Foca a detectat un nou hacker' \
-                      f' infiltrat. {member.mention} :beers:'
+            to_send = f'Atențiune, națiune! F.O.C.A. a detectat un nou ' \
+                      f'hacker infiltrat: {member.mention} :beers:\n' \
+                      f':bulb: Ca sa primesti un rol, scrie `/assign` in chat.'
             await guild.system_channel.send(to_send)
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
