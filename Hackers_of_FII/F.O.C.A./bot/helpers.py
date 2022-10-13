@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import re
 import random
 import discord
 from functools import wraps
-from discord.ext import commands
+from urllib import parse, request
 
 # Local imports
 from .constants import Color, QUOTES, LOCKED_COMMANDS, HOF_LOGO
@@ -12,16 +13,24 @@ from .constants import Color, QUOTES, LOCKED_COMMANDS, HOF_LOGO
 #######
 # --=== Helper Functions ===--
 #######
-async def attach_embed_info_and_send(ctx: commands.Context = None,
+async def attach_embed_info_and_send(interaction: discord.Interaction,
                                      message: str = None,
                                      color: Color = None,
                                      **kwargs):
+    _pop = lambda arg: kwargs.pop(arg) if kwargs.get(arg) else None
+    # Parsing custom args
+    custom_args = {
+        'IS_DEFERRED': _pop('arg__is_deferred')
+    }
+
     embed = discord.Embed(description=message, colour=color)
     embed.set_thumbnail(url=f'{HOF_LOGO}')
     embed.set_footer(text=random.choice(QUOTES))
-    # embed.set_footer(text="\tSatoshi Nakamoto, Hacker of FII", icon_url=url)
 
-    await ctx.send(embed=embed, **kwargs)
+    if not custom_args['IS_DEFERRED']:
+        await interaction.response.send_message(embed=embed, **kwargs)
+    else:
+        await interaction.edit_original_response(embed=embed, **kwargs)
 
 
 def get_roles():
@@ -51,15 +60,14 @@ def get_roles():
     return roles, colored
 
 
-def get_assign_help_menu():
-    assign_help_menu = [
-        'Assign the requested role to the user. Available roles:']
-    roles, colored_roles = get_roles()
-    colored_roles = [role[0] for role in colored_roles]
-    for role in roles + colored_roles:
-        if not ('YEAR' in role or 'MASTER' in role or 'TEACHER' in role):
-            assign_help_menu.append(f'\n\t- {role}')
-    return ''.join(assign_help_menu)
+def find_youtube_video(search_query):
+    query_string = parse.urlencode({'search_query': search_query})
+    html_content = request.urlopen(
+        f'https://www.youtube.com/results?{query_string}'
+    )
+    search_content = html_content.read().decode()
+    search_results = re.findall(r'/watch\?v=[a-zA-Z0-9_-]{11}', search_content)
+    return f'https://www.youtube.com{search_results[0]}'
 
 
 #######
