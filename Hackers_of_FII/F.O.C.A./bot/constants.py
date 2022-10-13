@@ -5,8 +5,8 @@ from enum import Enum, unique
 from dotenv import load_dotenv
 
 # Locked commands - cannot use them
-# LOCKED_COMMANDS = ['genesis', 'singularity']
-LOCKED_COMMANDS = []
+LOCKED_COMMANDS = ['genesis', 'singularity']
+# LOCKED_COMMANDS = []
 
 # Load environment variables from env file
 load_dotenv()
