@@ -1,3 +1,4 @@
+import re
 import discord
 from base64 import b64decode
 from discord.ext import commands
@@ -54,7 +55,9 @@ class SlashClient(commands.Bot):
         for something in constants.SURELY_NOT_RANDOM_RESPONSES_TO_MESSAGES:
             something_decoded = b64decode(something).decode('utf-8')
 
-            if something_decoded in message.content:
+            if re.search(rf'{something_decoded}',
+                         message.content,
+                         re.IGNORECASE):
                 await message.channel.send(b64decode(
                     constants.SURELY_NOT_RANDOM_RESPONSES_TO_MESSAGES[
                         something]).decode('utf-8')
